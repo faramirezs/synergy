@@ -50,10 +50,10 @@ app.use(express.static(__dirname + '/../client', {
         } else if (path.endsWith('.mp3')) {
             res.setHeader('Content-Type', 'audio/mpeg');
         }
-        
+
         // Add cache control headers
         res.setHeader('Cache-Control', 'public, max-age=86400');
-        
+
         // Log static file requests in development
         if (process.env.NODE_ENV !== 'production') {
             console.log(`[STATIC] Serving: ${path}`);
@@ -75,10 +75,10 @@ app.use('/audio', express.static(__dirname + '/../client/audio'));
 app.get('/favicon.ico', (req, res) => {
     const path = require('path');
     const faviconPath = path.join(__dirname, '/../client/favicon.ico');
-    
+
     res.setHeader('Content-Type', 'image/x-icon');
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    
+
     const fs = require('fs');
     if (fs.existsSync(faviconPath)) {
         res.sendFile(faviconPath);

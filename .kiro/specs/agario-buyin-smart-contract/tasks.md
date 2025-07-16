@@ -74,11 +74,13 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 6.1_
 
 - [ ] 8. Implement query functions for contract state
-  - Create get_game_state() function returning current GameState
-  - Create get_player_count() function returning u32 player count
-  - Create get_prize_pool() function returning current Balance
-  - Create is_player_registered() function checking player AccountId in mapping
-  - Write unit tests for all query functions
+  - Create #[ink(message)] pub fn get_game_state(&self) -> GameState using &self for read-only access
+  - Create #[ink(message)] pub fn get_player_count(&self) -> u32 returning self.player_count
+  - Create #[ink(message)] pub fn get_prize_pool(&self) -> Balance returning self.prize_pool
+  - Create #[ink(message)] pub fn is_player_registered(&self, player: AccountId) -> bool using self.players.contains(&player)
+  - Add #[ink(message)] pub fn get_registration_deadline(&self) -> Timestamp for frontend timing
+  - Write unit tests for all query functions using read-only contract instances
+  - Test query functions work in all game states
   - _Requirements: 8.2, 8.4_
 
 - [ ] 9. Implement comprehensive error handling
@@ -89,19 +91,23 @@
   - _Requirements: 5.2, 5.3, 5.4, 8.2_
 
 - [ ] 10. Implement event system with proper indexing
-  - Define all events (GameStarted, PlayerDeposited, GameBegan, GameEnded)
-  - Add #[ink(topic)] attributes for efficient filtering on key fields
-  - Ensure events include all necessary data for frontend integration
-  - Test event emission in all relevant functions
+  - Define #[ink(event)] pub struct GameStarted { #[ink(topic)] buy_in_amount: Balance, #[ink(topic)] deadline: Timestamp }
+  - Define #[ink(event)] pub struct PlayerDeposited { #[ink(topic)] player: AccountId, amount: Balance }
+  - Define #[ink(event)] pub struct GameBegan { player_count: u32, total_prize_pool: Balance }
+  - Define #[ink(event)] pub struct GameEnded { #[ink(topic)] winners: Vec<AccountId>, admin_payout: Balance, winner_payout: Balance }
+  - Use #[ink(topic)] only for AccountId, Balance, and other non-primitive types (avoid primitive_topic linter error)
+  - Emit events using self.env().emit_event(EventName { ... }) pattern
+  - Test event emission using ink::env::test::recorded_events() in unit tests
   - _Requirements: 5.1, 5.4, 8.3_
 
 - [ ] 11. Add comprehensive unit test suite
-  - Write tests for all constructor scenarios
-  - Create tests for complete game flow (start -> deposits -> begin -> end)
-  - Add tests for all error conditions and edge cases
-  - Implement tests for access control enforcement
-  - Add tests for event emission verification
-  - Create helper functions for test setup and common scenarios
+  - Write #[ink::test] functions for all constructor scenarios using ink::env::test module
+  - Create helper functions: setup_inactive_contract(), setup_accepting_deposits_game(), setup_in_progress_game()
+  - Test complete game flow: start_game -> multiple deposits -> try_begin_game -> end_game
+  - Add tests for all error conditions using assert!(matches!(result, Err(Error::SpecificError)))
+  - Implement access control tests using ink::env::test::set_caller() with different AccountIds
+  - Test event emission using ink::env::test::recorded_events() and verify event data
+  - Use ink::env::test::set_block_timestamp() and ink::env::test::set_value_transferred() for environment mocking
   - _Requirements: 7.5, 8.5_
 
 - [ ] 12. Implement mock testing for external dependencies

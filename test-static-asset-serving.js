@@ -3,7 +3,7 @@
 /**
  * Static Asset Serving Test Suite
  * Phase 5 - Milestone 5.1: Static Asset Serving Resolution
- * 
+ *
  * This test validates that all static assets are properly served
  * and resolves the 503 Service Unavailable errors.
  */
@@ -41,7 +41,7 @@ const staticAssets = [
 async function testLocalStaticAssets() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 1: Local Static Asset Serving');
-        
+
         // Start local server
         serverProcess = spawn('node', ['bin/server/server.js'], {
             stdio: ['pipe', 'pipe', 'pipe'],
@@ -67,7 +67,7 @@ async function testLocalStaticAssets() {
 
         async function runLocalAssetTests() {
             const results = [];
-            
+
             for (const asset of staticAssets) {
                 try {
                     const result = await testStaticAsset(`http://localhost:${SERVER_PORT}${asset.path}`, asset.contentType);
@@ -81,12 +81,12 @@ async function testLocalStaticAssets() {
 
             // Stop server
             serverProcess.kill();
-            
+
             const passedCount = results.filter(r => r.success).length;
             const failedCount = results.filter(r => !r.success).length;
-            
+
             console.log(`\n   📊 Local Tests: ${passedCount} passed, ${failedCount} failed`);
-            
+
             if (failedCount === 0) {
                 resolve(results);
             } else {
@@ -107,9 +107,9 @@ async function testLocalStaticAssets() {
 async function testProductionStaticAssets() {
     return new Promise(async (resolve, reject) => {
         console.log('\n📋 Test 2: Production Static Asset Serving');
-        
+
         const results = [];
-        
+
         for (const asset of staticAssets) {
             try {
                 const result = await testStaticAsset(`${PRODUCTION_URL}${asset.path}`, asset.contentType);
@@ -123,9 +123,9 @@ async function testProductionStaticAssets() {
 
         const passedCount = results.filter(r => r.success).length;
         const failedCount = results.filter(r => !r.success).length;
-        
+
         console.log(`\n   📊 Production Tests: ${passedCount} passed, ${failedCount} failed`);
-        
+
         if (failedCount === 0) {
             resolve(results);
         } else {
@@ -140,11 +140,11 @@ async function testStaticAsset(url, expectedContentType) {
     return new Promise((resolve, reject) => {
         const isHttps = url.startsWith('https');
         const client = isHttps ? https : http;
-        
+
         const request = client.request(url, { method: 'HEAD' }, (res) => {
             const statusCode = res.statusCode;
             const contentType = res.headers['content-type'];
-            
+
             if (statusCode === 200) {
                 if (contentType && contentType.includes(expectedContentType)) {
                     resolve({
@@ -170,15 +170,15 @@ async function testStaticAsset(url, expectedContentType) {
                 });
             }
         });
-        
+
         request.on('error', (error) => {
             reject(error);
         });
-        
+
         request.setTimeout(10000, () => {
             reject(new Error('Request timeout'));
         });
-        
+
         request.end();
     });
 }
@@ -186,7 +186,7 @@ async function testStaticAsset(url, expectedContentType) {
 async function testExpressStaticMiddleware() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 3: Express Static Middleware Configuration');
-        
+
         try {
             // Check if static files exist
             const clientPath = path.join(__dirname, 'src', 'client');
@@ -197,9 +197,9 @@ async function testExpressStaticMiddleware() {
                 'img/feed.png',
                 'img/split.png'
             ];
-            
+
             const results = [];
-            
+
             for (const file of requiredFiles) {
                 const filePath = path.join(clientPath, file);
                 if (fs.existsSync(filePath)) {
@@ -210,9 +210,9 @@ async function testExpressStaticMiddleware() {
                     console.log(`   ❌ ${file}: missing`);
                 }
             }
-            
+
             const missingFiles = results.filter(r => !r.exists);
-            
+
             if (missingFiles.length === 0) {
                 console.log('   ✅ All required static files exist');
                 resolve(results);
@@ -220,7 +220,7 @@ async function testExpressStaticMiddleware() {
                 console.log(`   ❌ ${missingFiles.length} static files missing`);
                 reject(new Error(`Missing static files: ${missingFiles.map(f => f.file).join(', ')}`));
             }
-            
+
         } catch (error) {
             console.log(`   ❌ Express static middleware test failed: ${error.message}`);
             reject(error);
@@ -231,12 +231,12 @@ async function testExpressStaticMiddleware() {
 async function testMimeTypeConfiguration() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 4: MIME Type Configuration');
-        
+
         try {
             // Test MIME types by checking server.js configuration
             const serverPath = path.join(__dirname, 'src', 'server', 'server.js');
             const serverContent = fs.readFileSync(serverPath, 'utf8');
-            
+
             const mimeTypes = [
                 { ext: '.ico', type: 'image/x-icon' },
                 { ext: '.css', type: 'text/css' },
@@ -244,9 +244,9 @@ async function testMimeTypeConfiguration() {
                 { ext: '.png', type: 'image/png' },
                 { ext: '.mp3', type: 'audio/mpeg' }
             ];
-            
+
             const results = [];
-            
+
             for (const mime of mimeTypes) {
                 if (serverContent.includes(mime.type)) {
                     results.push({ extension: mime.ext, configured: true });
@@ -256,9 +256,9 @@ async function testMimeTypeConfiguration() {
                     console.log(`   ❌ ${mime.ext}: ${mime.type} not configured`);
                 }
             }
-            
+
             const unconfiguredTypes = results.filter(r => !r.configured);
-            
+
             if (unconfiguredTypes.length === 0) {
                 console.log('   ✅ All MIME types properly configured');
                 resolve(results);
@@ -266,7 +266,7 @@ async function testMimeTypeConfiguration() {
                 console.log(`   ❌ ${unconfiguredTypes.length} MIME types not configured`);
                 reject(new Error(`Unconfigured MIME types: ${unconfiguredTypes.map(t => t.extension).join(', ')}`));
             }
-            
+
         } catch (error) {
             console.log(`   ❌ MIME type configuration test failed: ${error.message}`);
             reject(error);
@@ -277,27 +277,27 @@ async function testMimeTypeConfiguration() {
 // Main test execution
 async function runAllTests() {
     console.log(`📅 Test started at: ${new Date().toISOString()}`);
-    
+
     try {
         // Test 1: Express static middleware
         await testExpressStaticMiddleware();
         testResults.passed++;
-        
+
         // Test 2: MIME type configuration
         await testMimeTypeConfiguration();
         testResults.passed++;
-        
+
         // Test 3: Local static asset serving
         await testLocalStaticAssets();
         testResults.passed++;
-        
+
         // Test 4: Production static asset serving
         await testProductionStaticAssets();
         testResults.passed++;
-        
+
         console.log('\n🎉 SUCCESS: All static asset serving tests passed!');
         console.log(`📊 Test Summary: ${testResults.passed} passed, ${testResults.failed} failed`);
-        
+
     } catch (error) {
         testResults.failed++;
         console.log(`\n❌ FAILED: ${error.message}`);
