@@ -1,6 +1,22 @@
 /*jslint bitwise: true, node: true */
 'use strict';
 
+// Add global error handlers to catch startup issues
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught Exception:', err.message);
+    console.error('[FATAL] Stack:', err.stack);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+});
+
+console.log('[DEBUG] Starting Synergy server...');
+console.log('[DEBUG] Node.js version:', process.version);
+console.log('[DEBUG] Environment:', process.env.NODE_ENV || 'development');
+
 const express = require('express');
 const app = express();
 const http = require('http').Server(app);
@@ -120,7 +136,12 @@ app.get('/ready', (req, res) => {
     });
 });
 
-
+// Root route to serve index.html
+app.get('/', (req, res) => {
+    const path = require('path');
+    const indexPath = path.join(__dirname, '/../client/index.html');
+    res.sendFile(indexPath);
+});
 
 io.on('connection', function (socket) {
     let type = socket.handshake.query.type;
@@ -442,6 +463,20 @@ setInterval(gameloop, 1000);
 setInterval(sendUpdates, 1000 / config.networkUpdateFactor);
 
 // Don't touch, IP configurations.
-var ipaddress = process.env.OPENSHIFT_NODEJS_IP || process.env.IP || config.host;
-var serverport = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || config.port;
-http.listen(serverport, ipaddress, () => console.log('[DEBUG] Listening on ' + ipaddress + ':' + serverport));
+// Azure requires port 8080, so prioritize PORT environment variable
+var serverport = process.env.PORT || process.env.OPENSHIFT_NODEJS_PORT || config.port || 8080;
+var ipaddress = process.env.OPENSHIFT_NODEJS_IP || process.env.IP || config.host || '0.0.0.0';
+
+console.log(`[DEBUG] Starting server on ${ipaddress}:${serverport}`);
+console.log(`[DEBUG] Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`[DEBUG] PORT env var: ${process.env.PORT}`);
+
+// Add error handling for server startup
+http.listen(serverport, ipaddress, () => {
+    console.log(`[DEBUG] Listening on ${ipaddress}:${serverport}`);
+    console.log(`[DEBUG] Server started successfully`);
+}).on('error', (err) => {
+    console.error(`[ERROR] Server failed to start: ${err.message}`);
+    console.error(`[ERROR] Stack trace: ${err.stack}`);
+    process.exit(1);
+});

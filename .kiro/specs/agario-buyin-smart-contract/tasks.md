@@ -111,45 +111,58 @@
   - _Requirements: 7.5, 8.5_
 
 - [ ] 12. Implement mock testing for external dependencies
-  - Add conditional compilation flags for test-only mock fields
-  - Create mock implementations for transfer operations in test environment
-  - Write tests that verify external call behavior without actual transfers
+  - Add #[cfg(test)] mock fields to AgarioBuyin storage struct for tracking external calls
+  - Create conditional compilation functions: #[cfg(not(test))] for production transfers, #[cfg(test)] for mock transfers
+  - Implement mock_transfer_calls: Vec<String> field to track transfer operations in tests
+  - Write tests using mock implementations that verify transfer logic without actual fund movements
+  - Use conditional compilation pattern: production code calls self.env().transfer(), test code pushes to mock_transfer_calls
   - _Requirements: 6.3, 7.2_
 
 - [ ] 13. Add end-to-end test suite
-  - Set up E2E test configuration with ink_e2e framework
-  - Write E2E tests for complete game lifecycle
-  - Add tests for contract deployment and initialization
-  - Create tests for multi-player scenarios
-  - Test contract interaction with real blockchain environment
+  - Set up #[cfg(all(test, feature = "e2e-tests"))] mod e2e_tests with ink_e2e framework
+  - Install substrate contracts node: cargo install contracts-node --git https://github.com/paritytech/substrate-contracts-node.git
+  - Write #[ink_e2e::test] async fn full_game_lifecycle(mut client: ink_e2e::Client<C, E>) -> E2EResult<()>
+  - Test contract instantiation using client.instantiate("agario_buyin", &ink_e2e::alice(), constructor, 0, None)
+  - Create multi-player scenarios using ink_e2e::bob(), ink_e2e::charlie() for different players
+  - Use build_message pattern for contract calls: build_message::<AgarioBuyinRef>(contract_acc_id).call(|contract| contract.method())
+  - Test with real blockchain environment using client.call().submit().await for state changes
+  - Run tests with: cargo test --features e2e-tests
   - _Requirements: 8.5_
 
 - [ ] 14. Implement storage optimization and fallible operations
-  - Use ink::storage::Mapping for efficient player storage
-  - Implement try_* methods for any dynamic data operations
-  - Ensure all storage operations stay within 16 KiB buffer limits
-  - Add storage cleanup mechanisms where appropriate
+  - Use ink::storage::Mapping<AccountId, ()> for O(1) player lookups instead of Vec for gas efficiency
+  - Implement try_insert(), try_get(), try_remove() methods for dynamic data operations to prevent buffer overflows
+  - Ensure all storage operations stay within 16 KiB static buffer limits using fallible APIs
+  - Add storage cleanup in reset_game_state(): clear players mapping to allow deposit reclamation
+  - Use Blake2_128Concat hashing for mapping keys (default for ink::storage::Mapping)
+  - Avoid storing large dynamic data structures; use counters and mappings instead
   - _Requirements: 6.2, 7.2, 7.6_
 
 - [ ] 15. Add linting compliance and security validation
-  - Ensure contract passes cargo contract build --lint
-  - Verify no strict balance equality checks are used
-  - Confirm proper use of #[ink(topic)] for non-primitive types
-  - Validate that storage can be freed (storage_never_freed rule)
-  - Test with non_fallible_api linter rule compliance
+  - Run cargo contract build --lint to check all linter rules: no_main, primitive_topic, storage_never_freed, strict_balance_equality, non_fallible_api
+  - Verify no strict balance equality checks: avoid self.env().balance() == exact_amount patterns
+  - Confirm proper use of #[ink(topic)] for AccountId, Balance types only (not u8, u32, bool primitives)
+  - Validate storage_never_freed rule: ensure players.remove() capability for storage deposit reclamation
+  - Test non_fallible_api compliance: use try_insert(), try_get() for dynamic data operations
+  - Ensure contract uses #![cfg_attr(not(feature = "std"), no_std, no_main)] for no_main rule
   - _Requirements: 7.5, 7.7_
 
 - [ ] 16. Create deployment and integration documentation
-  - Write deployment scripts and instructions
-  - Create ABI documentation for frontend integration
-  - Add storage inspection and debugging guides
-  - Document contract interaction patterns for polkadot-js/api
+  - Write deployment scripts: cargo contract build --release, cargo contract instantiate --suri //Alice --args 5 -x
+  - Create ABI documentation from generated .contract bundle containing metadata.json and .wasm files
+  - Add storage inspection guides: cargo contract storage --contract <ADDRESS> for debugging
+  - Document polkadot-js/api integration: ContractPromise(api, abi, address) for frontend interaction
+  - Create examples for contract.query.getGameState() and contract.tx.deposit() patterns
+  - Document event filtering using api.query.system.events() and contract event decoding
   - _Requirements: 8.1, 8.4_
 
 - [ ] 17. Perform final integration testing and validation
-  - Run complete test suite including unit and E2E tests
-  - Validate contract against all requirements
-  - Test deployment on local development node
-  - Verify storage inspection and query functionality
-  - Confirm event emission and filtering works correctly
+  - Run complete test suite: cargo contract test for unit tests, cargo test --features e2e-tests for E2E tests
+  - Validate contract with cargo contract build --lint to ensure all linter rules pass
+  - Test deployment on local development node: substrate-contracts-node in background, then cargo contract instantiate
+  - Verify storage inspection: cargo contract storage --contract <ADDRESS> shows correct contract state
+  - Test contract calls: cargo contract call --contract <ADDRESS> --message get_game_state --suri //Alice
+  - Confirm event emission using polkadot-js/api event filtering and decoding
+  - Validate all requirements against implemented functionality using comprehensive test scenarios
+  - Test Chopsticks fork integration for live state testing if needed
   - _Requirements: All requirements validation_

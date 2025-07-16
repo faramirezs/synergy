@@ -42,13 +42,23 @@ Mic.js:298 ~~ Fluent Mic Check : prompt
 synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/:1 Failed to load resource: the server responded with a status of 503 (Service Unavailable)
 ```
 
+**Azure Deployment Log Errors** (July 16, 2025 - Critical):
+```
+2025-07-16T21:37:58.577Z INFO  - Initiating warmup request to container synergy42_0_87d1c344 for site synergy42
+2025-07-16T21:38:30.114Z INFO  - Waiting for response to warmup request for container synergy42_0_87d1c344. Elapsed time = 31.5364922 sec
+2025-07-16T21:38:34.697Z ERROR - Container synergy42_0_87d1c344 for site synergy42 has exited, failing site start
+2025-07-16T21:38:34.729Z ERROR - Container synergy42_0_87d1c344 didn't respond to HTTP pings on port: 8080. Failing site start. See container logs for debugging.
+2025-07-16T21:38:34.766Z INFO  - Stopping site synergy42 because it failed during startup.
+```
+
 **Root Cause Analysis**:
-1. **Critical**: 503 Service Unavailable for favicon.ico AND main application indicates complete server failure
-2. **Browser Extensions**: Multiple Fluent extension conflicts with duplicate context menu items
-3. **Date Format Issues**: Moment.js deprecation warnings from browser extensions affecting performance
-4. **Extension Loading Failures**: Web accessible resources not properly configured for extensions
-5. **Message Port Failures**: Browser extension communication breaking
-6. **Application Unavailability**: Entire application returning 503 errors, not just static assets
+1. **Critical**: Container exits immediately after startup, failing Azure warmup request
+2. **Port Configuration**: Container not responding to HTTP pings on port 8080
+3. **Application Startup Failure**: Server process terminates during initialization
+4. **Azure Health Check Failure**: Container fails Azure's mandatory health check
+5. **Browser Extensions**: Multiple Fluent extension conflicts with duplicate context menu items (secondary)
+6. **Date Format Issues**: Moment.js deprecation warnings from browser extensions (secondary)
+7. **Complete Service Unavailability**: Azure stops the site due to startup failure
 
 ---
 
@@ -64,12 +74,12 @@ synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/:1 Failed to load re
 - ❌ No production monitoring or error tracking
 
 **Critical Issues Identified**:
-1. **Complete Application Failure**: 503 errors for both static assets and main application indicate server not starting
-2. **Browser Extension Conflicts**: Multiple Fluent extension context menu duplicates causing crashes
-3. **Date/Time Processing Issues**: Moment.js deprecation warnings indicating potential performance impacts
-4. **Extension Communication Failures**: Message port errors and resource loading failures
-5. **Static Asset Serving Failure**: Complete failure to serve any static content
-6. **Application Runtime Issues**: Server appears to be failing to start or crashing immediately
+1. **Container Startup Failure**: Container exits immediately after startup, failing Azure warmup
+2. **Port Configuration Issues**: Application not responding to HTTP pings on port 8080
+3. **Server Process Termination**: Node.js server process terminates during initialization
+4. **Azure Health Check Failure**: Container fails mandatory Azure health check within 31.5 seconds
+5. **Application Unavailability**: Complete application failure causing 503 errors
+6. **Browser Extension Conflicts**: Secondary issue - Multiple Fluent extension context menu duplicates
 
 ### 🎯 Milestone 5.1: Static Asset Serving Resolution
 **Target Date**: July 17, 2025 (Morning)
@@ -77,52 +87,60 @@ synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/:1 Failed to load re
 **Priority**: Critical
 
 **Objectives**:
-- Resolve complete application failure causing 503 errors
-- Fix server startup issues preventing application from running
-- Ensure proper static file serving configuration
-- Validate all static assets load correctly
-- Fix Express.js static middleware configuration
-- Diagnose and resolve Azure deployment runtime issues
+- Resolve container startup failure causing immediate exit
+- Fix port configuration issues preventing Azure health check response
+- Diagnose Node.js server process termination during initialization
+- Ensure application responds to HTTP pings on port 8080
+- Fix Azure warmup request failure within 31.5 seconds
+- Resolve complete application unavailability (503 errors)
 
 **Technical Changes Required**:
-- Diagnose and fix complete application startup failure
-- Resolve server configuration issues causing 503 errors
-- Fix Express.js static file serving
-- Validate Azure web.config static file handling
-- Ensure proper MIME types for all static assets
-- Test static asset routing paths and permissions
-- Verify file system permissions in Azure
-- Check server startup logs and error handling
+- Diagnose and fix container startup failure
+- Fix port configuration to respond on port 8080
+- Add comprehensive server startup logging and error handling
+- Implement proper Azure health check endpoint
+- Fix Node.js server process initialization issues
+- Validate Azure container environment variables
+- Test application startup timing and responsiveness
+- Check for any blocking operations during server initialization
 
 **Testing Strategy**:
 ```bash
-# Unit Tests
-npm run test:static-asset-serving
-npm run test:express-static-middleware
-npm run test:mime-type-configuration
+# Container Startup Tests
+npm run test:container-startup
+npm run test:port-configuration
+npm run test:azure-health-check
 
-# Integration Tests
-npm run test:static-asset-routing
-npm run test:azure-static-files
-npm run test:file-permissions
+# Server Initialization Tests
+npm run test:server-initialization
+npm run test:startup-timing
+npm run test:process-stability
+
+# Azure Deployment Tests
+npm run test:azure-warmup
+npm run test:container-lifecycle
+npm run test:deployment-stability
 
 # Production Tests
-curl -I https://synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/favicon.ico
-curl -I https://synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/css/main.css
-curl -I https://synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/js/app.js
+curl -I https://synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/health
+curl -I https://synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/
+timeout 30 curl https://synergy42-akfhbrcfaub5fwat.northeurope-01.azurewebsites.net/
 ```
 
 **Success Criteria**:
+- ✅ Container starts successfully without exiting
+- ✅ Application responds to HTTP pings on port 8080
+- ✅ Azure warmup request succeeds within 30 seconds
+- ✅ No container startup failures or exits
 - ✅ All static assets return 200 OK responses
 - ✅ No 503 Service Unavailable errors
-- ✅ Proper MIME types for all file types
-- ✅ Static assets load within 2 seconds
-- ✅ No file permission errors in Azure logs
+- ✅ Proper server initialization and health checks
 
 **Rollback Plan**:
-- Revert Express.js static middleware changes
-- Restore previous web.config configuration
-- Rollback timeframe: 20 minutes
+- Revert server startup configuration changes
+- Restore previous port configuration
+- Revert Azure deployment settings
+- Rollback timeframe: 15 minutes
 
 **Risk Assessment**: 🔴 High Risk
 - Static asset changes could break application entirely
