@@ -7,7 +7,7 @@ Based on the Azure logs showing ".NET Core" instead of Node.js, the following fi
 ### ✅ **Issue**: Azure serving default static site instead of Node.js app
 **Fix**: Updated `package.json` with proper `main` field and `start` script
 
-### ✅ **Issue**: Missing Node.js routing configuration  
+### ✅ **Issue**: Missing Node.js routing configuration
 **Fix**: Created `web.config` with iisnode handler for proper Node.js routing
 
 ### ✅ **Issue**: Build process not running during deployment
@@ -115,6 +115,81 @@ After deployment, test:
 2. **Health check**: `https://synergy42.azurewebsites.net/health`
 3. **WebSocket**: Test game functionality
 
+## GitHub Actions Authentication Fix
+
+The deployment is failing due to federated identity configuration issues. Here's the fix:
+
+### **Option 1: Use Service Principal (Recommended)**
+
+1. **Create a service principal:**
+   ```bash
+   az ad sp create-for-rbac --name "synergy42-deploy" --role contributor --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Web/sites/synergy42 --sdk-auth
+   ```
+
+2. **Add the JSON output as a GitHub secret** named `AZURE_CREDENTIALS`
+
+3. **Update your workflow login step:**
+   ```yaml
+   - name: Login to Azure
+     uses: azure/login@v2
+     with:
+       creds: ${{ secrets.AZURE_CREDENTIALS }}
+   ```
+
+### **Option 2: Fix Federated Identity**
+
+If you want to keep using federated identity, configure it properly:
+
+1. **Go to Azure Portal** → **App Registrations** → Your app
+2. **Add federated credential** with:
+   - **Issuer**: `https://token.actions.githubusercontent.com`
+   - **Subject**: `repo:faramirezs/synergy:environment:Production`
+   - **Audience**: `api://AzureADTokenExchange`
+
+## GitHub Actions Workflow Fix
+
+The generated workflow is missing the build step and ESLint configuration. Update your workflow:
+
+```yaml
+- name: Set up Node.js version
+  uses: actions/setup-node@v3
+  with:
+    node-version: '18.x'
+
+- name: Install dependencies
+  run: npm ci
+
+- name: Build application
+  run: npm run build
+
+- name: Zip artifact for deployment
+  run: zip release.zip ./* -r
+```
+
+**Critical Issues Fixed:**
+1. Without `npm run build`, your `bin/server/server.js` file won't exist
+2. ESLint configuration (`.eslintrc`) must be included in deployment
+3. Build process now runs successfully with Node.js 18
+
+## ESLint Configuration Issue
+
+The build is failing because `.eslintrc` is missing from the deployment. Ensure these files are included:
+- `.eslintrc` - ESLint configuration
+- `.babelrc` - Babel configuration
+- `gulpfile.js` - Build configuration
+- `webpack.config.js` - Webpack configuration
+
+## Build Success Indicators
+
+✅ **Good signs from your logs:**
+- Node.js 18.20.8 detected and installed
+- npm install completed successfully
+- Build process started with `npm run build`
+- Gulp build system executed
+
+❌ **Current issue:**
+- ESLint configuration missing from deployment package
+
 ## Status: ✅ Ready for Redeployment
 
 All Azure deployment issues have been fixed. The application should now:
@@ -123,4 +198,4 @@ All Azure deployment issues have been fixed. The application should now:
 - Bind to the correct PORT
 - Serve the game properly
 
-**Next Action**: Commit changes and redeploy to Azure App Service.
+**Next Action**: Fix the GitHub Actions workflow to include the build step, then commit and deploy.

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "npx gulp build",
-    "start": "node bin/server/server.js",
+    "start": "node server.js",
     "watch": "npx gulp watch",
     "test": "npx gulp test",
     "test:node18": "node test-node18-milestone.js",

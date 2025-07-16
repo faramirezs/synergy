@@ -1,10 +1,20 @@
-{ 
-    "env": { 
-        "es6": true, 
-        "browser": true, 
-        "node": true, 
-        "jquery": true 
+{
+    "env": {
+        "es2022": true,
+        "browser": true,
+        "node": true,
+        "jquery": true
     },
-    "rules" : { },
+    "extends": ["eslint:recommended"],
+    "parserOptions": {
+        "ecmaVersion": 2022,
+        "sourceType": "module",
+        "requireConfigFile": false
+    },
+    "rules": {
+        "no-unused-vars": "warn",
+        "no-console": "off",
+        "no-undef": "warn"
+    },
     "parser": "@babel/eslint-parser"
 }
