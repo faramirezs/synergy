@@ -6,7 +6,7 @@ module.exports = (isProduction) => ({
         filename: "app.js"
     },
     devtool: false,
-    target: 'node18',
+    target: 'web',
     optimization: {
         minimize: true,
         nodeEnv: 'production'
