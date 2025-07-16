@@ -8,7 +8,8 @@
     "npm": ">=9.0.0"
   },
   "scripts": {
-    "build": "npx gulp build",
+    "build": "npx gulp build-prod",
+    "build:dev": "npx gulp build",
     "start": "node server.js",
     "watch": "npx gulp watch",
     "test": "npx gulp test",
@@ -26,7 +27,7 @@
     "phase2-3": "node test-deployment-validation.js",
     "phase3": "node phase-3-azure-deployment-fix.js",
     "start:prod": "NODE_ENV=production node bin/server/server.js",
-    "build:prod": "NODE_ENV=production npx gulp build-prod",
+    "build:prod": "NODE_ENV=production npm run build",
     "docker:build": "docker build -t synergy-agar:latest .",
     "docker:build:prod": "docker build -f Dockerfile.prod -t synergy-agar:prod .",
     "docker:run": "docker run -p 3000:3000 synergy-agar:latest",
