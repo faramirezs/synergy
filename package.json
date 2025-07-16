@@ -12,6 +12,7 @@
     "start": "node server.js",
     "watch": "npx gulp watch",
     "test": "npx gulp test",
+    "test:prod": "npx gulp mocha",
     "test:node18": "node test-node18-milestone.js",
     "test:deps": "node test-dependency-compatibility.js",
     "test:integration": "node test-integration-node18.js",

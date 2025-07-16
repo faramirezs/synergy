@@ -25,7 +25,7 @@ jobs:
 
       - name: Run tests (optional)
         run: |
-          npm test --if-present
+          npm run test:prod --if-present
         continue-on-error: true
 
       - name: Zip artifact for deployment
