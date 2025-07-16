@@ -70,6 +70,21 @@ gulp.task('lint', () => {
         .pipe(eslint.failAfterError())
 });
 
+// Production-safe lint task that doesn't fail if no config found
+gulp.task('lint-safe', (done) => {
+    const fs = require('fs');
+    if (!fs.existsSync('.eslintrc') && !fs.existsSync('.eslintrc.js') && !fs.existsSync('.eslintrc.json')) {
+        console.log('No ESLint configuration found - skipping linting in production build');
+        done();
+        return;
+    }
+
+    return gulp.src(['**/*.js', '!node_modules/**/*.js', '!bin/**/*.js'])
+        .pipe(eslint())
+        .pipe(eslint.format())
+        .pipe(eslint.failAfterError())
+});
+
 gulp.task('test', gulp.series('lint', mocha));
 
 gulp.task('todo', gulp.series('lint', () => {
@@ -77,6 +92,9 @@ gulp.task('todo', gulp.series('lint', () => {
         .pipe(todo())
         .pipe(gulp.dest('./'));
 }));
+
+// Production build without linting dependency
+gulp.task('build-prod', gulp.parallel(copyClientResources, buildClientJS, buildServer));
 
 gulp.task('build', gulp.series('lint', gulp.parallel(copyClientResources, buildClientJS, buildServer, mocha)));
 
