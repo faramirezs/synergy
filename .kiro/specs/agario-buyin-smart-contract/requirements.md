@@ -84,3 +84,29 @@ The contract follows ink! best practices including proper event emission, secure
 3. WHEN handling funds THEN the system SHALL ensure all transfers are atomic and properly validated
 4. WHEN state changes occur THEN the system SHALL update all relevant state variables before external interactions
 5. WHEN access control is required THEN the system SHALL verify caller permissions before executing privileged operations
+
+### Requirement 7
+
+**User Story:** As a developer, I want the contract to follow ink! best practices and security patterns, so that the contract is maintainable, secure, and passes linting checks.
+
+#### Acceptance Criteria
+
+1. WHEN defining events THEN the system SHALL use #[ink(event)] attribute and include #[ink(topic)] for indexed fields
+2. WHEN implementing storage operations THEN the system SHALL use fallible try_* methods for dynamic data to prevent buffer overflows
+3. WHEN defining custom data structures THEN the system SHALL derive scale::Encode and scale::Decode traits for SCALE codec compatibility
+4. WHEN implementing message functions THEN the system SHALL use &self for read-only operations and &mut self for state-changing operations
+5. WHEN the contract is built THEN the system SHALL pass cargo contract build --lint without security warnings
+6. WHEN storing data that can be removed THEN the system SHALL provide mechanisms to free storage and allow deposit reclamation
+7. WHEN handling Balance comparisons THEN the system SHALL avoid strict equality checks to prevent common smart contract vulnerabilities
+
+### Requirement 8
+
+**User Story:** As a frontend developer, I want predictable contract interfaces and comprehensive metadata, so that I can easily integrate with the contract using polkadot-js/api.
+
+#### Acceptance Criteria
+
+1. WHEN the contract is compiled THEN the system SHALL generate complete ABI metadata for all public functions and events
+2. WHEN functions return errors THEN the system SHALL use Result<(), Error> pattern for consistent error handling
+3. WHEN events are emitted THEN the system SHALL include all necessary data for frontend state synchronization and user notifications
+4. WHEN the contract is deployed THEN the system SHALL be queryable via contractsApi.getStorage for storage inspection
+5. WHEN message functions are called THEN the system SHALL provide clear success/failure responses that can be decoded by frontend applications

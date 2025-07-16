@@ -423,6 +423,6 @@ This PRD outlines the plan to upgrade the Synergy Agar.io Clone application from
 
 ---
 
-**Document Status**: In Progress  
-**Next Review Date**: July 23, 2025  
+**Document Status**: In Progress
+**Next Review Date**: July 23, 2025
 **Approval Required**: Development Team Lead, DevOps Team Lead

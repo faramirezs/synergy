@@ -22,16 +22,16 @@ let testResults = {
 function testDockerBuild() {
     return new Promise((resolve, reject) => {
         console.log('📋 Test 1: Docker Build Validation');
-        
+
         exec('docker --version', (error, stdout, stderr) => {
             if (error) {
                 console.log('   ⚠️  Docker not available, skipping Docker tests');
                 resolve();
                 return;
             }
-            
+
             console.log(`   Docker version: ${stdout.trim()}`);
-            
+
             // Check if Docker daemon is running
             exec('docker info', (error, stdout, stderr) => {
                 if (error) {
@@ -40,7 +40,7 @@ function testDockerBuild() {
                     resolve();
                     return;
                 }
-                
+
                 // Build production Docker image
                 exec('docker build -f Dockerfile.prod -t synergy-agar:test .', (error, stdout, stderr) => {
                     if (error) {
@@ -60,7 +60,7 @@ function testDockerBuild() {
 function testEnvironmentConfig() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 2: Environment Configuration Validation');
-        
+
         try {
             // Check config.js
             const configPath = path.join(process.cwd(), 'config.js');
@@ -69,14 +69,14 @@ function testEnvironmentConfig() {
                 reject(new Error('config.js not found'));
                 return;
             }
-            
+
             const config = require(configPath);
             console.log('   ✅ config.js loaded successfully');
-            
+
             // Check environment variables
             const requiredEnvVars = ['NODE_ENV', 'PORT'];
             const envStatus = {};
-            
+
             requiredEnvVars.forEach(envVar => {
                 if (process.env[envVar]) {
                     envStatus[envVar] = process.env[envVar];
@@ -86,12 +86,12 @@ function testEnvironmentConfig() {
                     console.log(`   ⚠️  ${envVar}: not set (will use default)`);
                 }
             });
-            
+
             // Check Azure-specific configurations
             if (fs.existsSync('manifest.yml')) {
                 console.log('   ✅ Azure manifest.yml found');
             }
-            
+
             resolve();
         } catch (error) {
             console.log(`   ❌ Environment configuration failed: ${error.message}`);
@@ -104,7 +104,7 @@ function testEnvironmentConfig() {
 function testBuildArtifacts() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 3: Production Build Artifacts Validation');
-        
+
         try {
             // Check for required build artifacts
             const requiredArtifacts = [
@@ -113,10 +113,10 @@ function testBuildArtifacts() {
                 'bin/client/css/main.css',
                 'bin/client/index.html'
             ];
-            
+
             const artifactStatus = {};
             let allArtifactsPresent = true;
-            
+
             requiredArtifacts.forEach(artifact => {
                 if (fs.existsSync(artifact)) {
                     const stats = fs.statSync(artifact);
@@ -128,7 +128,7 @@ function testBuildArtifacts() {
                     allArtifactsPresent = false;
                 }
             });
-            
+
             if (allArtifactsPresent) {
                 console.log('   ✅ All required build artifacts present');
                 resolve();
@@ -147,7 +147,7 @@ function testBuildArtifacts() {
 function testSecurityAudit() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 4: Security Audit Validation');
-        
+
         exec('npm audit --audit-level=high', (error, stdout, stderr) => {
             // npm audit returns exit code 1 when vulnerabilities are found
             // We'll consider it a warning, not a failure for deployment
@@ -156,14 +156,14 @@ function testSecurityAudit() {
                 reject(error);
             } else {
                 console.log('   ✅ Security audit completed');
-                
+
                 // Parse audit output
                 const lines = stdout.split('\n');
                 const vulnerabilityLine = lines.find(line => line.includes('vulnerabilities'));
                 if (vulnerabilityLine) {
                     console.log(`   📊 ${vulnerabilityLine.trim()}`);
                 }
-                
+
                 // Check for high severity vulnerabilities
                 const highVulnCount = (stdout.match(/high/g) || []).length;
                 if (highVulnCount > 0) {
@@ -172,7 +172,7 @@ function testSecurityAudit() {
                 } else {
                     console.log('   ✅ No high severity vulnerabilities found');
                 }
-                
+
                 resolve();
             }
         });
@@ -183,21 +183,21 @@ function testSecurityAudit() {
 function testHealthCheck() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 5: Health Check Endpoint Validation');
-        
+
         // Start server for health check
         const serverProcess = spawn('npm', ['run', 'start:prod'], {
             stdio: ['pipe', 'pipe', 'pipe'],
             cwd: process.cwd(),
             env: { ...process.env, NODE_ENV: 'production', PORT: '3001' }
         });
-        
+
         let serverReady = false;
-        
+
         serverProcess.stdout.on('data', (data) => {
             const output = data.toString();
             if (output.includes('Listening on')) {
                 serverReady = true;
-                
+
                 // Test health endpoint
                 setTimeout(() => {
                     const req = http.request({
@@ -214,7 +214,7 @@ function testHealthCheck() {
                                 console.log('   ✅ Health check endpoint responsive');
                                 console.log(`   ✅ Server status: ${health.status}`);
                                 console.log(`   ✅ Memory usage: ${(health.memory.heapUsed / 1024 / 1024).toFixed(2)}MB`);
-                                
+
                                 serverProcess.kill('SIGTERM');
                                 resolve();
                             } catch (error) {
@@ -224,25 +224,25 @@ function testHealthCheck() {
                             }
                         });
                     });
-                    
+
                     req.on('error', (error) => {
                         console.log(`   ❌ Health check request failed: ${error.message}`);
                         serverProcess.kill('SIGTERM');
                         reject(error);
                     });
-                    
+
                     req.end();
                 }, 2000);
             }
         });
-        
+
         serverProcess.on('close', (code) => {
             if (!serverReady) {
                 console.log(`   ❌ Server failed to start for health check (exit code: ${code})`);
                 reject(new Error('Server failed to start'));
             }
         });
-        
+
         setTimeout(() => {
             if (!serverReady) {
                 console.log('   ❌ Server startup timeout for health check');
@@ -257,7 +257,7 @@ function testHealthCheck() {
 function testProcessManagement() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 6: Process Management Validation');
-        
+
         try {
             // Check PM2 availability
             exec('pm2 --version', (error, stdout, stderr) => {
@@ -268,7 +268,7 @@ function testProcessManagement() {
                 } else {
                     console.log(`   ✅ PM2 available: ${stdout.trim()}`);
                 }
-                
+
                 // Check if server can handle graceful shutdown
                 console.log('   ✅ Process management validation complete');
                 resolve();
@@ -284,7 +284,7 @@ function testProcessManagement() {
 function testAzureDeployment() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 7: Azure Deployment Readiness');
-        
+
         try {
             // Check Azure CLI
             exec('az --version', (error, stdout, stderr) => {
@@ -294,7 +294,7 @@ function testAzureDeployment() {
                 } else {
                     console.log('   ✅ Azure CLI available');
                 }
-                
+
                 // Check Azure-specific files
                 const azureFiles = [
                     'manifest.yml',
@@ -302,7 +302,7 @@ function testAzureDeployment() {
                     'Dockerfile',
                     'Dockerfile.prod'
                 ];
-                
+
                 azureFiles.forEach(file => {
                     if (fs.existsSync(file)) {
                         console.log(`   ✅ ${file} found`);
@@ -310,7 +310,7 @@ function testAzureDeployment() {
                         console.log(`   ⚠️  ${file} not found`);
                     }
                 });
-                
+
                 // Check package.json for Azure-specific scripts
                 const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
                 if (packageJson.scripts['deploy:azure']) {
@@ -318,7 +318,7 @@ function testAzureDeployment() {
                 } else {
                     console.log('   ⚠️  Azure deployment script not configured');
                 }
-                
+
                 console.log('   ✅ Azure deployment readiness check complete');
                 resolve();
             });
@@ -333,17 +333,17 @@ function testAzureDeployment() {
 function testFinalValidation() {
     return new Promise((resolve, reject) => {
         console.log('\n📋 Test 8: Final Validation Summary');
-        
+
         try {
             // Check Node.js version
             console.log(`   ✅ Node.js version: ${process.version}`);
-            
+
             // Check package.json engines
             const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             if (packageJson.engines && packageJson.engines.node) {
                 console.log(`   ✅ Node.js engine requirement: ${packageJson.engines.node}`);
             }
-            
+
             // Check if all required files exist
             const requiredFiles = [
                 'package.json',
@@ -354,7 +354,7 @@ function testFinalValidation() {
                 'Dockerfile',
                 'Dockerfile.prod'
             ];
-            
+
             let allFilesPresent = true;
             requiredFiles.forEach(file => {
                 if (fs.existsSync(file)) {
@@ -364,13 +364,13 @@ function testFinalValidation() {
                     allFilesPresent = false;
                 }
             });
-            
+
             if (allFilesPresent) {
                 console.log('   ✅ All required files present');
             } else {
                 console.log('   ❌ Some required files missing');
             }
-            
+
             // Final deployment readiness
             console.log('   ✅ Final validation complete');
             resolve();
@@ -384,7 +384,7 @@ function testFinalValidation() {
 // Generate deployment guide
 function generateDeploymentGuide() {
     console.log('\n📋 Generating Deployment Guide...');
-    
+
     const deploymentGuide = `# Node.js 18 Deployment Guide
 
 ## Deployment Checklist
@@ -518,56 +518,56 @@ The application has been successfully upgraded to Node.js 18 and is ready for pr
 // Run all deployment validation tests
 async function runDeploymentValidation() {
     console.log('Starting Node.js 18 deployment validation...\n');
-    
+
     try {
         // Test 1: Docker build
         await testDockerBuild();
         testResults.passed++;
-        
+
         // Test 2: Environment config
         await testEnvironmentConfig();
         testResults.passed++;
-        
+
         // Test 3: Build artifacts
         await testBuildArtifacts();
         testResults.passed++;
-        
+
         // Test 4: Security audit
         await testSecurityAudit();
         testResults.passed++;
-        
+
         // Test 5: Health check
         await testHealthCheck();
         testResults.passed++;
-        
+
         // Test 6: Process management
         await testProcessManagement();
         testResults.passed++;
-        
+
         // Test 7: Azure deployment
         await testAzureDeployment();
         testResults.passed++;
-        
+
         // Test 8: Final validation
         await testFinalValidation();
         testResults.passed++;
-        
+
     } catch (error) {
         testResults.failed++;
         console.log(`\n   Error: ${error.message}`);
     }
-    
+
     console.log('\n📊 Deployment Validation Results:');
     console.log(`   ✅ Passed: ${testResults.passed}/${testResults.total}`);
     console.log(`   ❌ Failed: ${testResults.failed}/${testResults.total}`);
-    
+
     if (testResults.failed === 0) {
         console.log('\n🎉 ALL DEPLOYMENT VALIDATION TESTS PASSED!');
         console.log('✅ Node.js 18 upgrade is deployment-ready');
         console.log('🚀 Application is ready for production deployment');
-        
+
         generateDeploymentGuide();
-        
+
         console.log('\n🎯 Deployment Summary:');
         console.log('   ✅ Node.js 18 LTS configured');
         console.log('   ✅ Production build optimized');
@@ -576,9 +576,9 @@ async function runDeploymentValidation() {
         console.log('   ✅ Health monitoring active');
         console.log('   ✅ Security audit passed');
         console.log('   ✅ Performance validated');
-        
+
         console.log('\n📋 Ready for deployment! See DEPLOYMENT_GUIDE.md for instructions.');
-        
+
         process.exit(0);
     } else {
         console.log('\n⚠️  Some deployment validation tests failed');
