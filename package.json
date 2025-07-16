@@ -10,7 +10,8 @@
   "scripts": {
     "build": "npx gulp build-prod",
     "build:dev": "npx gulp build",
-    "start": "node server.js",
+    "start": "node bin/server/server.js",
+    "prestart": "npm run build",
     "watch": "npx gulp watch",
     "test": "npx gulp test",
     "test:prod": "npx gulp mocha",
