@@ -1,11 +1,8 @@
 {
-  "name": "agar-clone",
-  "description": "A simple Agar.io clone",
+  "name": "synergy-agar-clone",
+  "description": "Agar.io Clone running on Node.js 18",
   "scripts": {
-    "build": "gulp build",
-    "start": "gulp run",
-    "watch": "gulp watch",
-    "test": "gulp test"
+    "postdeploy": "npm run build"
   },
   "repository": "https://github.com/huytd/agar.io-clone",
   "engines": {
@@ -16,5 +13,23 @@
     {
       "url": "heroku/nodejs"
     }
-  ]
+  ],
+  "keywords": [
+    "nodejs",
+    "websocket",
+    "game",
+    "agar.io"
+  ],
+  "website": "https://github.com/faramirezs/synergy",
+  "success_url": "/",
+  "env": {
+    "NODE_ENV": {
+      "description": "Node.js environment",
+      "value": "production"
+    },
+    "PORT": {
+      "description": "Application port",
+      "value": "8080"
+    }
+  }
 }

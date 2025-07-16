@@ -1,12 +1,11 @@
 ---
 applications:
-- name: agar-clone
+- name: synergy-agar-clone
   memory: 512M
-  disk_quota: 1G
-  buildpack: nodejs_buildpack
-  node_version: 18
-  host: agar-clone
-  domain: mybluemix.net
-  timeout: 180
+  instances: 1
+  buildpacks:
+  - nodejs_buildpack
   env:
+    NODE_ENV: production
     NPM_CONFIG_PRODUCTION: false
+  command: npm start

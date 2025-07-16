@@ -2,14 +2,14 @@
   "name": "agar.io-clone",
   "version": "1.0.0",
   "description": "A simple Agar.io clone",
-  "main": "server/server.js",
+  "main": "bin/server/server.js",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   },
   "scripts": {
     "build": "npx gulp build",
-    "start": "npx gulp run",
+    "start": "node bin/server/server.js",
     "watch": "npx gulp watch",
     "test": "npx gulp test",
     "test:node18": "node test-node18-milestone.js",
@@ -23,6 +23,7 @@
     "phase2-1": "node phase-2-1-production-optimization.js",
     "phase2-2": "node test-performance-node18.js",
     "phase2-3": "node test-deployment-validation.js",
+    "phase3": "node phase-3-azure-deployment-fix.js",
     "start:prod": "NODE_ENV=production node bin/server/server.js",
     "build:prod": "NODE_ENV=production npm run build",
     "docker:build": "docker build -t synergy-agar:latest .",
@@ -31,7 +32,9 @@
     "docker:run:prod": "docker run -p 3000:3000 synergy-agar:prod",
     "deploy:azure": "az webapp deploy --resource-group myResourceGroup --name myApp --src-path .",
     "health:check": "curl -f http://localhost:3000/health || exit 1",
-    "logs:prod": "tail -f logs/app.log"
+    "logs:prod": "tail -f logs/app.log",
+    "azure:build": "npm run build",
+    "azure:start": "NODE_ENV=production node bin/server/server.js"
   },
   "repository": {
     "type": "git",
