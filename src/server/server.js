@@ -28,6 +28,29 @@ const Vector = SAT.Vector;
 
 app.use(express.static(__dirname + '/../client'));
 
+// Health check endpoint for production monitoring
+app.get('/health', (req, res) => {
+    const health = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        version: process.version,
+        environment: process.env.NODE_ENV || 'development'
+    };
+    res.json(health);
+});
+
+app.get('/ready', (req, res) => {
+    // Check if app is ready to serve requests
+    res.json({
+        status: 'ready',
+        timestamp: new Date().toISOString()
+    });
+});
+
+
+
 io.on('connection', function (socket) {
     let type = socket.handshake.query.type;
     console.log('User has connected: ', type);

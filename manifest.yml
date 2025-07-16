@@ -4,6 +4,7 @@ applications:
   memory: 512M
   disk_quota: 1G
   buildpack: nodejs_buildpack
+  node_version: 18
   host: agar-clone
   domain: mybluemix.net
   timeout: 180

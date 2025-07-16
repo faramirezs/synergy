@@ -1,4 +1,8 @@
-module.exports = {
+
+// Environment-specific configuration
+const environment = process.env.NODE_ENV || 'development';
+const baseConfig = {
+
     host: "0.0.0.0",
     port: 3000,
     logpath: "logger.php",
@@ -35,3 +39,13 @@ module.exports = {
       fileName: "db.sqlite3",
     }
 };
+
+// Load environment-specific config
+try {
+    const envSpecificConfig = require(`./config/${environment}`);
+    module.exports = { ...baseConfig, ...envSpecificConfig };
+} catch (error) {
+    // Fall back to base config if env-specific config doesn't exist
+    module.exports = baseConfig;
+}
+

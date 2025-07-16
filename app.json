@@ -7,5 +7,14 @@
     "watch": "gulp watch",
     "test": "gulp test"
   },
-  "repository": "https://github.com/huytd/agar.io-clone"
+  "repository": "https://github.com/huytd/agar.io-clone",
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
 }
