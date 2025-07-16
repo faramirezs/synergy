@@ -26,7 +26,78 @@ let leaderboardChanged = false;
 
 const Vector = SAT.Vector;
 
-app.use(express.static(__dirname + '/../client'));
+// Enhanced static file serving with proper error handling and logging
+app.use(express.static(__dirname + '/../client', {
+    dotfiles: 'ignore',
+    etag: true,
+    extensions: ['htm', 'html'],
+    fallthrough: true,
+    immutable: false,
+    index: false,
+    lastModified: true,
+    maxAge: '1d',
+    redirect: false,
+    setHeaders: function (res, path, stat) {
+        // Set proper MIME types
+        if (path.endsWith('.ico')) {
+            res.setHeader('Content-Type', 'image/x-icon');
+        } else if (path.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css');
+        } else if (path.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        } else if (path.endsWith('.png')) {
+            res.setHeader('Content-Type', 'image/png');
+        } else if (path.endsWith('.mp3')) {
+            res.setHeader('Content-Type', 'audio/mpeg');
+        }
+        
+        // Add cache control headers
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        
+        // Log static file requests in development
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`[STATIC] Serving: ${path}`);
+        }
+    }
+}));
+
+// Log static file serving path for debugging
+console.log(`[STATIC] Static files served from: ${__dirname}/../client`);
+console.log(`[STATIC] Full path: ${require('path').resolve(__dirname + '/../client')}`);
+
+// Additional static file middleware with error handling
+app.use('/css', express.static(__dirname + '/../client/css'));
+app.use('/js', express.static(__dirname + '/../client/js'));
+app.use('/img', express.static(__dirname + '/../client/img'));
+app.use('/audio', express.static(__dirname + '/../client/audio'));
+
+// Specific favicon route to handle favicon.ico requests
+app.get('/favicon.ico', (req, res) => {
+    const path = require('path');
+    const faviconPath = path.join(__dirname, '/../client/favicon.ico');
+    
+    res.setHeader('Content-Type', 'image/x-icon');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    
+    const fs = require('fs');
+    if (fs.existsSync(faviconPath)) {
+        res.sendFile(faviconPath);
+    } else {
+        // Fallback: return a simple 204 No Content if favicon doesn't exist
+        res.status(204).end();
+    }
+});
+
+// Handle static file errors
+app.use((err, req, res, next) => {
+    if (err.code === 'ENOENT') {
+        console.error(`[STATIC ERROR] File not found: ${req.path}`);
+        res.status(404).send('File not found');
+    } else {
+        console.error(`[STATIC ERROR] ${err.message}`);
+        res.status(500).send('Internal server error');
+    }
+});
 
 // Health check endpoint for production monitoring
 app.get('/health', (req, res) => {

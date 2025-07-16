@@ -158,12 +158,326 @@ This PRD outlines the plan to upgrade the Synergy Agar.io Clone application from
 
 **Fix Results**: 7/7 Azure deployment fixes applied successfully
 
+### 🎯 Phase 4: Complete Azure Deployment Resolution (PLANNED)
+**Target Date**: July 17-18, 2025
+**Status**: Planning Phase
+**Goal**: Resolve remaining Azure deployment issues through systematic milestone-based approach
+
+## Phase 4 Implementation Plan
+
+### 📋 Current State Analysis
+
+**Deployment Failures Identified**:
+- ❌ Azure Oryx build fails due to missing ESLint configuration
+- ❌ GitHub Actions workflow missing critical build steps
+- ❌ Deployment package excludes hidden files (.eslintrc)
+- ❌ Build process inconsistency between local, CI, and Azure environments
+- ❌ Browser console errors indicating application loading issues
+
+**Root Cause Analysis**:
+1. **ESLint Configuration Missing**: Azure Oryx build directory `/tmp/8ddc4a7fa1c338d` lacks .eslintrc file
+2. **GitHub Actions Workflow Gaps**: Missing npm install, build steps, and proper artifact handling
+3. **Deployment Package Issues**: Hidden files not included in deployment zip
+4. **Build Process Inconsistency**: Different behaviors across environments
+5. **Production Environment Errors**: Browser extension conflicts and JavaScript loading issues
+
+### 🎯 Milestone 4.1: Build Process Standardization
+**Target Date**: July 17, 2025 (Morning)
+**Duration**: 4 hours
+**Priority**: High
+
+**Objectives**:
+- Standardize build scripts across all environments
+- Ensure production build bypasses problematic linting steps
+- Validate build consistency between local, CI, and Azure
+
+**Technical Changes Required**:
+- Update package.json build scripts for consistency
+- Modify gulpfile.js to handle production vs development builds
+- Create environment-specific build configurations
+- Implement build validation scripts
+
+**Testing Strategy**:
+```bash
+# Unit Tests
+npm run test:build-consistency
+npm run test:environment-detection
+npm run test:production-build
+
+# Integration Tests
+npm run test:local-build
+npm run test:ci-build
+npm run test:azure-build-simulation
+```
+
+**Success Criteria**:
+- ✅ `npm run build` works identically across all environments
+- ✅ Production build completes without linting dependencies
+- ✅ Build artifacts are identical regardless of environment
+- ✅ No environment-specific build failures
+
+**Rollback Plan**:
+- Revert package.json to previous working state
+- Restore original gulpfile.js configuration
+- Rollback timeframe: 30 minutes
+
+**Risk Assessment**: 🟡 Medium Risk
+- Build changes could affect existing functionality
+- Requires careful testing in multiple environments
+
+### 🎯 Milestone 4.2: GitHub Actions Workflow Completion
+**Target Date**: July 17, 2025 (Afternoon)
+**Duration**: 3 hours
+**Priority**: High
+
+**Objectives**:
+- Complete GitHub Actions workflow with all necessary steps
+- Ensure proper artifact creation and deployment
+- Validate CI/CD pipeline functionality
+
+**Technical Changes Required**:
+- Add missing npm install and build steps
+- Fix artifact creation to include all necessary files
+- Update deployment configuration for Azure
+- Configure proper environment variables and secrets
+
+**Testing Strategy**:
+```yaml
+# Workflow Tests
+- name: Test Build Step
+  run: npm run test:workflow-build
+
+- name: Test Artifact Creation
+  run: npm run test:artifact-validation
+
+- name: Test Deployment Package
+  run: npm run test:deployment-package
+```
+
+**Success Criteria**:
+- ✅ GitHub Actions workflow completes without errors
+- ✅ Build artifacts include all necessary files
+- ✅ Deployment package is correctly formatted
+- ✅ All workflow steps execute in proper sequence
+
+**Rollback Plan**:
+- Revert .github/workflows/main_synergy42.yml to previous version
+- Disable workflow temporarily if needed
+- Rollback timeframe: 15 minutes
+
+**Risk Assessment**: 🟡 Medium Risk
+- Workflow changes could break CI/CD pipeline
+- Requires testing in non-production environment first
+
+### 🎯 Milestone 4.3: Azure Oryx Build Resolution
+**Target Date**: July 17, 2025 (Evening)
+**Duration**: 3 hours
+**Priority**: Critical
+
+**Objectives**:
+- Resolve ESLint configuration issues in Azure Oryx build
+- Ensure all required files are included in deployment package
+- Validate Azure build process completion
+
+**Technical Changes Required**:
+- Fix deployment package to include hidden files
+- Resolve ESLint configuration path issues
+- Update Azure build configuration if needed
+- Implement Azure-specific build optimizations
+
+**Testing Strategy**:
+```bash
+# Azure Build Tests
+npm run test:azure-oryx-simulation
+npm run test:eslint-config-presence
+npm run test:deployment-package-contents
+npm run test:azure-build-validation
+```
+
+**Success Criteria**:
+- ✅ Azure Oryx build completes without ESLint errors
+- ✅ All required configuration files are present in build directory
+- ✅ Build process executes all necessary steps
+- ✅ No missing file or configuration errors
+
+**Rollback Plan**:
+- Revert to previous deployment package configuration
+- Restore original build scripts
+- Use manual deployment if automated fails
+- Rollback timeframe: 45 minutes
+
+**Risk Assessment**: 🔴 High Risk
+- Azure build changes could break deployment entirely
+- Requires careful staging environment testing
+
+### 🎯 Milestone 4.4: End-to-End Deployment Testing
+**Target Date**: July 18, 2025 (Morning)
+**Duration**: 4 hours
+**Priority**: High
+
+**Objectives**:
+- Validate complete deployment pipeline from git push to live application
+- Test all application functionality in production environment
+- Ensure zero-downtime deployment
+
+**Technical Changes Required**:
+- Configure staging environment for testing
+- Implement deployment health checks
+- Set up monitoring and alerting
+- Create deployment validation scripts
+
+**Testing Strategy**:
+```bash
+# End-to-End Tests
+npm run test:deployment-pipeline
+npm run test:application-health
+npm run test:feature-validation
+npm run test:performance-baseline
+```
+
+**Success Criteria**:
+- ✅ Complete deployment pipeline functions correctly
+- ✅ Application loads without errors in production
+- ✅ All core features work as expected
+- ✅ Performance meets baseline requirements
+
+**Rollback Plan**:
+- Automated rollback to previous working deployment
+- Database rollback if schema changes were made
+- DNS rollback if domain changes occurred
+- Rollback timeframe: 60 minutes
+
+**Risk Assessment**: 🟡 Medium Risk
+- Production deployment could affect live users
+- Requires comprehensive testing and monitoring
+
+### 🎯 Milestone 4.5: Production Validation and Monitoring
+**Target Date**: July 18, 2025 (Afternoon)
+**Duration**: 3 hours
+**Priority**: Medium
+
+**Objectives**:
+- Validate all application features in production environment
+- Implement comprehensive monitoring and alerting
+- Resolve any browser console errors or loading issues
+
+**Technical Changes Required**:
+- Set up application performance monitoring
+- Configure error tracking and alerting
+- Implement health check endpoints
+- Create production validation test suite
+
+**Testing Strategy**:
+```bash
+# Production Validation Tests
+npm run test:production-health
+npm run test:browser-console-errors
+npm run test:websocket-connectivity
+npm run test:api-endpoints
+npm run test:user-workflows
+```
+
+**Success Criteria**:
+- ✅ No browser console errors (addressing extension conflicts)
+- ✅ All API endpoints respond correctly
+- ✅ WebSocket connections are stable
+- ✅ User workflows complete successfully
+- ✅ Performance metrics meet targets
+
+**Rollback Plan**:
+- Monitoring rollback to previous configuration
+- Alert system rollback if needed
+- Performance optimization rollback
+- Rollback timeframe: 30 minutes
+
+**Risk Assessment**: 🟢 Low Risk
+- Monitoring and validation changes have minimal impact
+- Easy to rollback if issues arise
+
+### 📊 Risk Assessment Matrix
+
+| Risk Level | Probability | Impact | Mitigation Strategy |
+|------------|-------------|--------|-------------------|
+| 🔴 High | Medium | High | Staging environment testing, automated rollback |
+| 🟡 Medium | Low | Medium | Comprehensive testing, phased rollout |
+| 🟢 Low | Low | Low | Standard monitoring, quick rollback |
+
+### 🔄 Testing Framework
+
+**Unit Testing**:
+- Individual component functionality
+- Build process validation
+- Configuration file integrity
+
+**Integration Testing**:
+- End-to-end deployment pipeline
+- Azure Oryx build simulation
+- GitHub Actions workflow validation
+
+**Smoke Testing**:
+- Basic application functionality
+- API endpoint connectivity
+- WebSocket connection stability
+
+**Performance Testing**:
+- Load testing with baseline comparison
+- Memory usage monitoring
+- Response time validation
+
+**Security Testing**:
+- Vulnerability scanning
+- Dependency audit
+- Configuration security review
+
+### 📈 Success Metrics
+
+**Technical Metrics**:
+- ✅ Build success rate: 100%
+- ✅ Deployment time: < 10 minutes
+- ✅ Application startup time: < 30 seconds
+- ✅ Zero console errors in browser
+- ✅ API response time: < 100ms
+
+**Business Metrics**:
+- ✅ Application uptime: 99.9%
+- ✅ User session stability: 99.5%
+- ✅ Feature functionality: 100%
+- ✅ Performance baseline maintained
+
+### 🚨 Incident Response Plan
+
+**Escalation Levels**:
+1. **Level 1**: Individual milestone failure - rollback and retry
+2. **Level 2**: Multiple milestone failures - pause and reassess
+3. **Level 3**: Production impact - immediate rollback to last known good state
+
+**Communication Plan**:
+- Milestone completion notifications
+- Risk escalation alerts
+- Rollback execution confirmations
+- Final deployment success validation
+
+### 📋 Dependencies and Prerequisites
+
+**Technical Prerequisites**:
+- ✅ Node.js 18 upgrade completed (Phases 1-3)
+- ✅ GitHub repository access with proper secrets
+- ✅ Azure App Service configured for Node.js 18
+- ✅ Local development environment working
+
+**Resource Requirements**:
+- Development time: 17 hours across 2 days
+- Testing time: 8 hours for validation
+- Monitoring setup: 3 hours for configuration
+- Documentation: 2 hours for updates
+
 ### 🎯 Next Steps: Azure Redeployment
-The application now has proper Azure App Service configuration and should deploy correctly. The key fixes address:
-- Proper startup script configuration
-- Node.js routing through iisnode
-- Build process during deployment
-- PORT environment variable handling
+Upon completion of Phase 4, the application will have:
+- Fully functional Azure deployment pipeline
+- Consistent build process across all environments
+- Comprehensive monitoring and validation
+- Zero browser console errors
+- Production-ready Node.js 18 application
 
 ---
 
