@@ -17,77 +17,201 @@
 
 ### **🔥 MVP CRITICAL PATH**
 
-- [ ] **Task 2: Core Storage & Types** (30 min)
+- [ ] **Task 2: Core Storage & Types** (45 min)
   ```rust
   #[ink(storage)]
   pub struct AgarioBuyin {
       admin: AccountId,
       game_state: GameState,
       buy_in_amount: Balance,
+      // Registration & Timing
+      registration_deadline: Timestamp,
+      min_players: u32,
+      max_players: Option<u32>,
+      // Game Duration & End Conditions
+      game_duration: Option<Timestamp>, // None = no time limit
+      game_start_time: Timestamp,
+      // Players & Prize Pool
       players: Mapping<AccountId, ()>,
       player_count: u32,
       prize_pool: Balance,
+      // Admin Configuration
+      admin_fee_percentage: u8, // 0-100
+  }
+
+  enum GameState {
+      Inactive,
+      AcceptingDeposits,
+      InProgress,
+      WaitingForResults, // NEW: Game ended, waiting for winner submission
+  }
+
+  enum GameEndReason {
+      TimeLimit,
+      LastPlayerStanding,
+      AdminForced,
   }
   ```
-  - Simple GameState enum: `Inactive | AcceptingDeposits | InProgress`
-  - Basic Error enum: `NotAdmin | WrongState | WrongAmount`
-  - _Target: Get storage compiling_
+  - Enhanced Error enum: `NotAdmin | WrongState | WrongAmount | GameNotStarted | RegistrationClosed | GameFull | TooFewPlayers`
+  - _Target: Complete storage with timing logic_
 
-- [ ] **Task 3: Essential Functions** (90 min)
-  - `start_game(buy_in: Balance)` - Admin starts game, sets buy-in
-  - `deposit()` - Payable function for players to join
-  - `end_game(winners: Vec<AccountId>)` - Admin distributes prizes
-  - `get_game_state()`, `get_player_count()` - Basic queries
-  - _Target: Core game flow working_
+- [ ] **Task 3: Enhanced Game Management** (120 min)
+  - `start_game(buy_in: Balance, registration_minutes: u32, min_players: u32, game_duration_minutes: Option<u32>)` - Admin configures and starts game
+  - `deposit()` - Payable function with registration deadline and player limit checks
+  - `try_begin_game()` - Auto-transition from AcceptingDeposits to InProgress when conditions met
+  - `report_game_end(reason: GameEndReason)` - Game server reports game completion
+  - `submit_winners(winners: Vec<AccountId>, winner_percentages: Vec<u8>)` - Admin submits winners with prize distribution
+  - `get_game_state()`, `get_player_count()`, `get_time_remaining()` - Enhanced queries
+  - _Target: Complete game lifecycle with timing_
 
-- [ ] **Task 4: Basic Events** (30 min)
+- [ ] **Task 4: Game Timing & Validation** (45 min)
+  ```rust
+  #[ink(message)]
+  pub fn check_game_conditions(&mut self) -> Result<(), Error> {
+      let now = self.env().block_timestamp();
+
+      match self.game_state {
+          GameState::AcceptingDeposits => {
+              // Check if registration deadline passed
+              if now >= self.registration_deadline {
+                  if self.player_count >= self.min_players {
+                      self.game_state = GameState::InProgress;
+                      self.game_start_time = now;
+                      self.env().emit_event(GameBegan { player_count: self.player_count });
+                  } else {
+                      // Refund all players and reset
+                      self.refund_all_players()?;
+                  }
+              }
+          },
+          GameState::InProgress => {
+              // Check if game duration exceeded
+              if let Some(duration) = self.game_duration {
+                  if now >= self.game_start_time + duration {
+                      self.game_state = GameState::WaitingForResults;
+                      self.env().emit_event(GameTimeExpired {});
+                  }
+              }
+          },
+          _ => {}
+      }
+      Ok(())
+  }
+  ```
+  - Auto-refund mechanism for failed games
+  - Time-based state transitions
+  - _Target: Automated game progression_
+
+- [ ] **Task 5: Winner Detection & Prize Distribution** (60 min)
+  ```rust
+  #[ink(message)]
+  pub fn submit_winners(&mut self, winners: Vec<AccountId>, percentages: Vec<u8>) -> Result<(), Error> {
+      // Validate admin and state
+      if self.env().caller() != self.admin { return Err(Error::NotAdmin); }
+      if self.game_state != GameState::WaitingForResults { return Err(Error::WrongState); }
+      if winners.len() != percentages.len() { return Err(Error::MismatchedData); }
+      if percentages.iter().sum::<u8>() > 100 { return Err(Error::InvalidPercentages); }
+
+      // Calculate and distribute prizes
+      let admin_cut = (self.prize_pool * self.admin_fee_percentage as Balance) / 100;
+      let winner_pool = self.prize_pool - admin_cut;
+
+      for (winner, percentage) in winners.iter().zip(percentages.iter()) {
+          let prize = (winner_pool * *percentage as Balance) / 100;
+          self.env().transfer(*winner, prize).map_err(|_| Error::TransferFailed)?;
+      }
+
+      // Transfer admin fee
+      self.env().transfer(self.admin, admin_cut).map_err(|_| Error::TransferFailed)?;
+
+      // Reset game
+      self.reset_game_state();
+      self.env().emit_event(GameEnded { winners: winners.clone(), total_distributed: self.prize_pool });
+      Ok(())
+  }
+  ```
+  - Percentage-based prize distribution
+  - Validation for winner data
+  - _Target: Fair and flexible prize system_
+
+- [ ] **Task 6: Enhanced Events & Game Server Integration** (45 min)
   ```rust
   #[ink(event)]
-  pub struct GameStarted { buy_in: Balance }
+  pub struct GameStarted {
+      buy_in: Balance,
+      registration_deadline: Timestamp,
+      min_players: u32,
+      game_duration: Option<Timestamp>
+  }
 
   #[ink(event)]
-  pub struct PlayerJoined { player: AccountId }
+  pub struct PlayerJoined {
+      player: AccountId,
+      player_count: u32,
+      prize_pool: Balance
+  }
 
   #[ink(event)]
-  pub struct GameEnded { winners: Vec<AccountId> }
+  pub struct GameBegan {
+      player_count: u32,
+      game_start_time: Timestamp
+  }
+
+  #[ink(event)]
+  pub struct GameTimeExpired {}
+
+  #[ink(event)]
+  pub struct GameEnded {
+      winners: Vec<AccountId>,
+      percentages: Vec<u8>,
+      total_distributed: Balance,
+      reason: GameEndReason
+  }
+
+  #[ink(event)]
+  pub struct GameRefunded {
+      players_refunded: u32,
+      amount_each: Balance
+  }
   ```
-  - _Target: Events for frontend integration_
+  - Game server webhook integration point for `report_game_end()`
+  - _Target: Complete event system with timing data_
 
-- [ ] **Task 5: MVP Testing** (45 min)
+- [ ] **Task 7: MVP Testing** (45 min)
   - Unit tests for happy path: start → deposit → end
   - Test admin access control
   - Test basic error cases
   - _Target: `cargo test` passes with confidence_
 
-- [ ] **Task 6: Contract Deployment** (30 min)
+- [ ] **Task 8: Contract Deployment** (30 min)
   - `cargo contract build --release`
   - Deploy to local node or testnet
   - Verify contract instantiation works
   - _Target: Live contract for frontend_
 
-**MVP TOTAL: ~4 hours** ⏱️
+**MVP TOTAL: ~6 hours** ⏱️ (Enhanced with timing & winner logic)
 
 ---
 
 ## 🎮 **MVP Frontend Integration** (Target: 2-3 hours)
 
-- [ ] **Task 7: Basic Wallet Connection** (45 min)
+- [ ] **Task 9: Basic Wallet Connection** (45 min)
   - Connect Polkadot.js extension
   - Display connected account
   - Basic error handling
 
-- [ ] **Task 8: Admin Panel** (60 min)
+- [ ] **Task 10: Admin Panel** (60 min)
   - Start game button (admin only)
   - Set buy-in amount
   - End game with winner selection
   - Show current game state
 
-- [ ] **Task 9: Player Interface** (45 min)
+- [ ] **Task 11: Player Interface** (45 min)
   - Deposit button when game active
   - Show current players count
   - Registration status display
 
-- [ ] **Task 10: Event Monitoring** (30 min)
+- [ ] **Task 12: Event Monitoring** (30 min)
   - Listen for contract events
   - Update UI on state changes
   - Basic notifications
