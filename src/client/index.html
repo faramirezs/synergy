@@ -37,7 +37,7 @@
                 <p>Balance: <span id="account-balance"></span> DOT</p>
               </div>
             </div>
-            <button id="startButton" onclick="document.getElementById('spawn_cell').play();">Play</button>
+            <button id="startButton">Play</button>
             <button id="spectateButton">Spectate</button>
             <button id="settingsButton">Settings</button>
             <br />
@@ -195,32 +195,17 @@
     <script>
         // Fix the game's button handling
         window.addEventListener('load', function() {
-            console.log('Fixing button handlers');
+            console.log('Adding sound effect to start button');
             const startBtn = document.getElementById('startButton');
             if (startBtn) {
-                // Replace the existing onclick with one that checks wallet first
-                const originalOnclick = startBtn.onclick;
-                startBtn.onclick = function(event) {
-                    // Check if wallet info is showing (meaning wallet is connected)
-                    const walletInfo = document.getElementById('wallet-info');
-                    if (walletInfo && walletInfo.style.display === 'block' && window.connectedWallet) {
-                        console.log('Wallet connected, allowing game start');
-                        
-                        // Store wallet address in global player object for use in game
-                        if (window.global) {
-                            window.global.walletAddress = window.connectedWallet.address;
-                            console.log('Added wallet address to player:', window.global.walletAddress);
-                        }
-                        
-                        if (originalOnclick) originalOnclick.call(this, event);
-                    } else {
-                        console.log('Please connect wallet first');
-                        alert('Please connect your wallet before starting the game');
-                        event.preventDefault();
-                        return false;
+                // Add sound effect when the button is clicked (without interfering with game logic)
+                startBtn.addEventListener('click', function() {
+                    const spawnSound = document.getElementById('spawn_cell');
+                    if (spawnSound) {
+                        spawnSound.play().catch(e => console.log('Sound play failed:', e));
                     }
-                };
-                console.log('Start button handler modified');
+                });
+                console.log('Start button sound effect added');
             }
         }, false);
     </script>

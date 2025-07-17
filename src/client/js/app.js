@@ -76,11 +76,11 @@ function startGame(type) {
     global.socket = socket;
 }
 
-// Checks if the nick chosen contains valid alphanumeric characters (and underscores).
+// Checks if the nick chosen contains valid characters for the game.
 function validNick() {
-    var regex = /^\w*$/;
-    debug('Regex Test', regex.exec(playerNameInput.value));
-    return regex.exec(playerNameInput.value) !== null;
+    const name = playerNameInput.value.trim();
+    // Allow any non-empty name with reasonable length, but sanitize server-side
+    return name.length > 0 && name.length <= 25;
 }
 
 window.onload = function () {
@@ -93,16 +93,15 @@ window.onload = function () {
         startGame('spectator');
     };
 
-    // btn.onclick = function () {
-
-    //     // Checks if the nick is valid.
-    //     if (validNick()) {
-    //         nickErrorText.style.opacity = 0;
-    //         startGame('player');
-    //     } else {
-    //         nickErrorText.style.opacity = 1;
-    //     }
-    // };
+    btn.onclick = function () {
+        // Checks if the nick is valid.
+        if (validNick()) {
+            nickErrorText.style.opacity = 0;
+            startGame('player');
+        } else {
+            nickErrorText.style.opacity = 1;
+        }
+    };
 
     var settingsMenu = document.getElementById('settingsButton');
     var settings = document.getElementById('settings');
@@ -121,7 +120,7 @@ window.onload = function () {
         if (key === global.KEY_ENTER) {
             if (validNick()) {
                 nickErrorText.style.opacity = 0;
-                // startGame('player');
+                startGame('player');
             } else {
                 nickErrorText.style.opacity = 1;
             }
