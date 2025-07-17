@@ -12,12 +12,12 @@ mod agario_buyin {
         /// Administrative fields
         game_admin: AccountId,
         admin_fee_percentage: u8,
-        
+
         /// Game state management
         game_state: GameState,
         buy_in_amount: Balance,
         registration_deadline: Timestamp,
-        
+
         /// Player management
         players: Mapping<AccountId, ()>,
         player_count: u32,
@@ -139,8 +139,13 @@ mod agario_buyin {
             // Then
             let get_state = build_message::<AgarioBuyinRef>(contract_account_id.clone())
                 .call(|contract| contract.get_game_state());
-            let get_state_result = client.call_dry_run(&ink_e2e::alice(), &get_state, 0, None).await;
-            assert!(matches!(get_state_result.return_value(), GameState::Inactive));
+            let get_state_result = client
+                .call_dry_run(&ink_e2e::alice(), &get_state, 0, None)
+                .await;
+            assert!(matches!(
+                get_state_result.return_value(),
+                GameState::Inactive
+            ));
 
             Ok(())
         }
