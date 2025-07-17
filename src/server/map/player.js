@@ -91,6 +91,7 @@ exports.Player = class {
         this.screenWidth = null;
         this.screenHeight = null;
         this.timeToMerge = null;
+        this.walletAddress = null; // Add wallet address property
         this.setLastHeartbeat();
     }
 
@@ -110,6 +111,10 @@ exports.Player = class {
         this.name = playerData.name;
         this.screenWidth = playerData.screenWidth;
         this.screenHeight = playerData.screenHeight;
+        // Store wallet address if provided
+        if (playerData.walletAddress) {
+            this.walletAddress = playerData.walletAddress;
+        }
         this.setLastHeartbeat();
     }
 

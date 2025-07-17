@@ -128,6 +128,22 @@ app.get('/health', (req, res) => {
     res.json(health);
 });
 
+// Player API endpoint to view connected players with wallet addresses
+app.get('/api/players', (req, res) => {
+    const players = map.players.data.map(player => ({
+        id: player.id,
+        name: player.name,
+        walletAddress: player.walletAddress,
+        massTotal: player.massTotal,
+        cellsCount: player.cells ? player.cells.length : 0
+    }));
+    
+    res.json({
+        total: players.length,
+        players: players
+    });
+});
+
 app.get('/ready', (req, res) => {
     // Check if app is ready to serve requests
     res.json({
@@ -183,6 +199,12 @@ const addPlayer = (socket) => {
 
             const sanitizedName = clientPlayerData.name.replace(/(<([^>]+)>)/ig, '');
             clientPlayerData.name = sanitizedName;
+
+            // Store wallet address if provided
+            if (clientPlayerData.walletAddress) {
+                currentPlayer.walletAddress = clientPlayerData.walletAddress;
+                console.log('[INFO] Player ' + clientPlayerData.name + ' connected with wallet: ' + clientPlayerData.walletAddress.substring(0, 10) + '...');
+            }
 
             currentPlayer.clientProvidedData(clientPlayerData);
             map.players.pushNew(currentPlayer);
