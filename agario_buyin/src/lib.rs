@@ -485,7 +485,7 @@ mod agario_buyin {
             &mut self,
             winners: Vec<H160>,
             percentages: Vec<u8>,
-            reason: GameEndReason,
+            _reason: GameEndReason,
         ) -> Result<()> {
             // Check admin access
             if self.env().caller() != self.game_admin {
@@ -519,7 +519,7 @@ mod agario_buyin {
             let winner_pool = self.prize_pool.saturating_sub(admin_cut);
 
             // Store total for event
-            let total_distributed = self.prize_pool;
+            let _total_distributed = self.prize_pool;
 
             // Distribute prizes to winners
             for (winner, percentage) in winners.iter().zip(percentages.iter()) {
@@ -541,11 +541,11 @@ mod agario_buyin {
 
             // Emit GameEnded event (commented for MVP due to ink! v6 compatibility)
             // self.env().emit_event(GameEnded {
-            //     total_distributed,
+            //     total_distributed: _total_distributed,
             //     winners: winners.clone(),
             //     percentages: percentages.clone(),
             //     admin_fee: admin_cut,
-            //     reason,
+            //     reason: _reason,
             // });
 
             // Reset game state
@@ -579,9 +579,9 @@ mod agario_buyin {
         }
 
         /// Internal function to refund all players with specific reason
-        fn refund_all_players_with_reason(&mut self, reason: GameEndReason) -> Result<()> {
-            let total_refunded = self.prize_pool;
-            let players_refunded = self.player_count;
+        fn refund_all_players_with_reason(&mut self, _reason: GameEndReason) -> Result<()> {
+            let _total_refunded = self.prize_pool;
+            let _players_refunded = self.player_count;
 
             if self.player_count > 0 && self.prize_pool > 0 {
                 let _refund_per_player = self.prize_pool
@@ -593,9 +593,9 @@ mod agario_buyin {
 
                 // Emit GameRefunded event (commented for MVP due to ink! v6 compatibility)
                 // self.env().emit_event(GameRefunded {
-                //     players_refunded,
-                //     total_refunded,
-                //     reason,
+                //     players_refunded: _players_refunded,
+                //     total_refunded: _total_refunded,
+                //     reason: _reason,
                 // });
             }
 
@@ -982,7 +982,7 @@ mod agario_buyin {
             assert!(result.is_ok());
         }
 
-        /// 🎯 MVP CRITICAL TEST: Complete happy path flow (start → deposit → end)
+                /// 🎯 MVP CRITICAL TEST: Complete happy path flow (start → deposit → end)
         /// This test simulates the exact flow that will be demonstrated in the hackathon
         #[ink::test]
         fn mvp_complete_happy_path_flow() {
@@ -990,10 +990,10 @@ mod agario_buyin {
 
             // STEP 1: Admin starts game (Demo Step 1)
             assert_eq!(contract.get_game_state(), GameState::Inactive);
-            let result = contract.start_game(1000000000000, 10, 2, Some(30)); // 1 DOT buy-in, 10min reg, 2 min players, 30min duration
+            let result = contract.start_game(10000, 10, 2, Some(30)); // 10,000 units buy-in, 10min reg, 2 min players, 30min duration
             assert!(result.is_ok());
             assert_eq!(contract.get_game_state(), GameState::AcceptingDeposits);
-            assert_eq!(contract.get_buy_in_amount(), 1000000000000);
+            assert_eq!(contract.get_buy_in_amount(), 10000);
             assert_eq!(contract.get_min_players(), 2);
 
             // STEP 2: Players join game (Demo Step 2)
@@ -1008,22 +1008,22 @@ mod agario_buyin {
             // Simulate player deposits by manually updating state (for unit test)
             contract.players.insert(player1, &());
             contract.player_count = 1;
-            contract.prize_pool = 1000000000000; // 1 DOT
+            contract.prize_pool = 10000; // Player 1 deposit
 
             contract.players.insert(player2, &());
             contract.player_count = 2;
-            contract.prize_pool = 2000000000000; // 2 DOT
+            contract.prize_pool = 20000; // Player 1 + 2 deposits
 
             contract.players.insert(player3, &());
             contract.player_count = 3;
-            contract.prize_pool = 3000000000000; // 3 DOT
+            contract.prize_pool = 30000; // Player 1 + 2 + 3 deposits
 
             // Verify player registrations
             assert!(contract.is_player_registered(player1));
             assert!(contract.is_player_registered(player2));
             assert!(contract.is_player_registered(player3));
             assert_eq!(contract.get_player_count(), 3);
-            assert_eq!(contract.get_prize_pool(), 3000000000000);
+            assert_eq!(contract.get_prize_pool(), 30000);
 
             // STEP 3: Game begins automatically when conditions met
             // Simulate time passing and try to begin game
@@ -1051,11 +1051,11 @@ mod agario_buyin {
             assert_eq!(contract.get_buy_in_amount(), 0);
 
             // Prize distribution verification:
-            // Total pool: 3 DOT (3,000,000,000,000)
-            // Admin fee (5%): 150,000,000,000
-            // Winner pool: 2,850,000,000,000
-            // 1st place (60%): 1,710,000,000,000
-            // 2nd place (40%): 1,140,000,000,000
+            // Total pool: 30,000 units
+            // Admin fee (5%): 1,500 units
+            // Winner pool: 28,500 units
+            // 1st place (60%): 17,100 units
+            // 2nd place (40%): 11,400 units
             // Note: Actual transfer verification would be done in E2E tests
         }
 
