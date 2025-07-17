@@ -327,6 +327,39 @@ mod agario_buyin {
             Ok(())
         }
 
+        /// Check game conditions and handle automatic state transitions
+        #[ink(message)]
+        pub fn check_game_conditions(&mut self) -> Result<()> {
+            let now = self.env().block_timestamp();
+
+            match self.game_state {
+                GameState::AcceptingDeposits => {
+                    // Check if registration deadline passed
+                    if now >= self.registration_deadline {
+                        if self.player_count >= self.min_players {
+                            self.game_state = GameState::InProgress;
+                            self.game_start_time = now;
+                            // Game began - events temporarily removed for MVP
+                        } else {
+                            // Refund all players and reset
+                            self.refund_all_players()?;
+                        }
+                    }
+                },
+                GameState::InProgress => {
+                    // Check if game duration exceeded
+                    if let Some(duration) = self.game_duration {
+                        if now >= self.game_start_time + duration {
+                            self.game_state = GameState::WaitingForResults;
+                            // Game time expired - events temporarily removed for MVP
+                        }
+                    }
+                },
+                _ => {}
+            }
+            Ok(())
+        }
+
         /// Report that the game has ended (called by game server or admin)
         #[ink(message)]
         pub fn report_game_end(&mut self, reason: GameEndReason) -> Result<()> {
@@ -577,12 +610,7 @@ mod agario_buyin {
 
             // Mock the deposit by setting transferred value
             // Note: In actual tests, this would be handled by the test environment
-            // For unit tests, we'll test the logic validation
-
-            // Test state validation
-            contract.game_state = GameState::Inactive;
-            // Can't test actual deposit without mock environment,
-            // but we can test the state validation logic indirectly
+            // For unit tests, we'll test the logic validation indirectly
         }
 
         /// Test game flow transitions.
@@ -641,12 +669,70 @@ mod agario_buyin {
             let percentages = vec![60, 50]; // Total > 100
             let result = contract.submit_winners(winners, percentages);
             assert!(matches!(result, Err(Error::InvalidPercentages)));
+        }
 
-            // Test valid input
-            let winners = vec![H160::from([1; 20])];
-            let percentages = vec![80]; // Valid percentage
-            let _result = contract.submit_winners(winners, percentages);
-            // This would succeed in actual environment with balance transfers
+        /// Test check_game_conditions function for automatic state transitions
+        #[ink::test]
+        fn check_game_conditions_handles_transitions() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Test 1: Transition from AcceptingDeposits to InProgress
+            // Use a past timestamp so the deadline is definitely passed
+            contract.start_game(1000, 0, 2, Some(10)).unwrap(); // registration_deadline = 0 (immediate)
+            contract.player_count = 3; // Enough players
+
+            // Force the registration deadline to be in the past by setting it manually
+            contract.registration_deadline = 0; // Definitely in the past
+
+            // Should transition to InProgress
+            let result = contract.check_game_conditions();
+            assert!(matches!(result, Ok(())));
+            assert_eq!(contract.get_game_state(), GameState::InProgress);
+            // Note: game_start_time will be set to current block timestamp (likely 0 in test env)
+
+            // Test 2: Game duration expiry transition
+            // Set up a scenario where game duration has expired
+            contract.game_state = GameState::InProgress;
+            contract.game_start_time = 0; // Game started at time 0
+            contract.game_duration = Some(0); // Duration is 0, so immediately expired
+
+            // Should transition to WaitingForResults
+            let result = contract.check_game_conditions();
+            assert!(matches!(result, Ok(())));
+            assert_eq!(contract.get_game_state(), GameState::WaitingForResults);
+        }
+
+        /// Test check_game_conditions refund logic
+        #[ink::test]
+        fn check_game_conditions_refunds_on_insufficient_players() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Start game with immediate deadline but insufficient players
+            contract.start_game(1000, 0, 5, Some(10)).unwrap(); // Need 5 players
+            contract.player_count = 2; // Only 2 players
+
+            // Should refund and reset to Inactive
+            let result = contract.check_game_conditions();
+            assert!(matches!(result, Ok(())));
+            assert_eq!(contract.get_game_state(), GameState::Inactive);
+            assert_eq!(contract.player_count, 0);
+        }
+
+        /// Test check_game_conditions no-op for other states
+        #[ink::test]
+        fn check_game_conditions_no_op_for_other_states() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Test Inactive state
+            let result = contract.check_game_conditions();
+            assert!(matches!(result, Ok(())));
+            assert_eq!(contract.get_game_state(), GameState::Inactive);
+
+            // Test WaitingForResults state
+            contract.game_state = GameState::WaitingForResults;
+            let result = contract.check_game_conditions();
+            assert!(matches!(result, Ok(())));
+            assert_eq!(contract.get_game_state(), GameState::WaitingForResults);
         }
 
         /// Test reset game state function.
