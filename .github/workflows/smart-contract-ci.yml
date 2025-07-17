@@ -1,11 +1,30 @@
-name: 🚀 Smart Contract - Hackathon Build
+name: 🚀 Smart Contract - Hackathon Cloud Build
 
 on:
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type for hackathon development'
+        required: true
+        type: choice
+        options:
+        - 'quick-build'
+        - 'full-build-with-tests'
+        - 'deployment-ready'
+        default: 'quick-build'
+      skip_tests:
+        description: 'Skip tests for faster builds?'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
   hackathon-build:
-    name: 🏆 Hackathon Build
+    name: 🏆 Hackathon Cloud Build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -15,28 +34,71 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: 🦀 Setup Rust
+      - name: 🚀 Build Info
+        run: |
+          echo "🏆 HACKATHON CLOUD BUILD"
+          echo "📦 Build Type: ${{ github.event.inputs.build_type }}"
+          echo "� Skip Tests: ${{ github.event.inputs.skip_tests }}"
+          echo "🕐 Started: $(date)"
+
+      - name: �🦀 Setup Rust with Cache
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
           components: rust-src
 
-      - name: 📦 Install cargo-contract
-        run: cargo install cargo-contract --force --locked
+      - name: 📦 Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: 📦 Install cargo-contract (Cached)
+        run: |
+          if ! cargo contract --version; then
+            cargo install cargo-contract --force --locked
+          else
+            echo "cargo-contract already installed"
+          fi
 
       - name: 🧪 Run Tests
-        run: cargo test
+        if: ${{ github.event.inputs.skip_tests != 'true' }}
+        run: |
+          echo "🧪 Running tests..."
+          cargo test --verbose
 
       - name: 🏗️ Build Contract
-        run: cargo contract build --release
+        run: |
+          echo "🏗️ Building contract..."
+          cargo contract build --release --verbose
 
-      - name: 📤 Upload Contract
+      - name: 📊 Build Summary
+        run: |
+          echo "📊 BUILD SUMMARY"
+          echo "Contract Size: $(ls -lh target/ink/agario_buyin.wasm | awk '{print $5}')"
+          echo "Metadata: $(ls -lh target/ink/agario_buyin.json | awk '{print $5}')"
+          echo "Bundle: $(ls -lh target/ink/agario_buyin.contract | awk '{print $5}')"
+
+      - name: 📤 Upload Contract Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: hackathon-contract-${{ github.sha }}
+          name: hackathon-contract-${{ github.event.inputs.build_type }}-${{ github.run_number }}
           path: |
             agario_buyin/target/ink/agario_buyin.contract
             agario_buyin/target/ink/agario_buyin.wasm
             agario_buyin/target/ink/agario_buyin.json
-          retention-days: 7
+          retention-days: 30
+
+      - name: 🎯 Quick Deploy Info
+        if: ${{ github.event.inputs.build_type == 'deployment-ready' }}
+        run: |
+          echo "🎯 DEPLOYMENT READY"
+          echo "Contract Address: Will be generated during deployment"
+          echo "Network: Configure in frontend integration"
+          echo "Download artifacts from: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
