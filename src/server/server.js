@@ -480,3 +480,22 @@ http.listen(serverport, ipaddress, () => {
     console.error(`[ERROR] Stack trace: ${err.stack}`);
     process.exit(1);
 });
+
+// Graceful shutdown handler for production stability
+process.on('SIGTERM', () => {
+    console.log('[INFO] SIGTERM received, shutting down gracefully...');
+    http.close(() => {
+        console.log('[INFO] HTTP server closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('[INFO] SIGINT received, shutting down gracefully...');
+    http.close(() => {
+        console.log('[INFO] HTTP server closed');
+        process.exit(0);
+    });
+});
+
+console.log('[INFO] Server initialization complete - ready for requests');

@@ -19,12 +19,13 @@
   - _Requirements: 5.1, 7.3, 8.1_
 
 - [ ] 3. Implement contract constructor with validation
-  - Create #[ink(constructor)] pub fn new(admin_fee: u8) -> Result<Self, Error> function
-  - Add validation: if admin_fee > 100 { return Err(Error::InvalidAdminFee) }
-  - Use self.env().caller() to set game_admin to deployer's AccountId
-  - Initialize all fields: game_state: GameState::Inactive, players: Mapping::default(), player_count: 0, prize_pool: 0
-  - Write #[ink::test] unit tests using ink::env::test module for mocking environment
-  - Test valid admin fees (0-100) and invalid fees (>100)
+  - Create #[ink(constructor)] pub fn new(admin_fee: u8) -> Result<Self, Error> function (constructors are implicitly payable)
+  - Add validation: if admin_fee > 100 { return Err(Error::InvalidAdminFee) } before creating Self instance
+  - Use Self::env().caller() to set game_admin to deployer's AccountId
+  - Initialize all fields: game_state: GameState::Inactive, players: Mapping::default(), player_count: 0, prize_pool: 0, registration_deadline: 0, buy_in_amount: 0
+  - Return Ok(Self { game_admin, admin_fee_percentage: admin_fee, ... }) on successful validation
+  - Write #[ink::test] unit tests using ink::env::test module for environment mocking
+  - Test valid admin fees (0-100) with assert!(matches!(result, Ok(_))) and invalid fees (>100) with assert!(matches!(result, Err(Error::InvalidAdminFee)))
   - _Requirements: 1.1, 1.2_
 
 - [ ] 4. Implement game administration functions
@@ -39,15 +40,16 @@
   - _Requirements: 1.3, 1.4, 1.5, 1.6, 5.1, 7.1_
 
 - [ ] 5. Implement player deposit functionality
-  - Create #[ink(message, payable)] pub fn deposit(&mut self) -> Result<(), Error> function
+  - Create #[ink(message, payable)] pub fn deposit(&mut self) -> Result<(), Error> function (payable allows receiving funds)
+  - Get caller: let caller = self.env().caller() and transferred_value = self.env().transferred_value()
   - Add state validation: if self.game_state != GameState::AcceptingDeposits { return Err(Error::GameNotInCorrectState) }
   - Implement deadline check: if self.env().block_timestamp() >= self.registration_deadline { return Err(Error::RegistrationPeriodOver) }
   - Validate buy-in amount: if self.env().transferred_value() != self.buy_in_amount { return Err(Error::IncorrectBuyInAmount) }
-  - Check duplicate registration: if self.players.contains(caller) { return Err(Error::PlayerAlreadyDeposited) }
-  - Use self.players.insert(caller, &()) for O(1) player storage
+  - Check duplicate registration: if self.players.contains(&caller) { return Err(Error::PlayerAlreadyDeposited) }
+  - Use self.players.insert(&caller, &()) for O(1) player storage with Blake2_128Concat hashing
   - Update counters: self.player_count += 1, self.prize_pool += transferred_value
-  - Emit PlayerDeposited event with #[ink(topic)] on player AccountId
-  - Write unit tests using ink::env::test::set_value_transferred() and ink::env::test::set_block_timestamp()
+  - Emit PlayerDeposited event: self.env().emit_event(PlayerDeposited { player: caller, amount: transferred_value })
+  - Write unit tests using ink::env::test::set_value_transferred() and ink::env::test::set_block_timestamp() for environment mocking
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8_
 
 - [ ] 6. Implement automatic game state transition
