@@ -30,7 +30,14 @@
             <input type="text" tabindex="0" autofocus placeholder="Enter your name here" id="playerNameInput" maxlength="25" />
             <b class="input-error">Nick must be alphanumeric characters only!</b>
             <br />
-            <a onclick="document.getElementById('spawn_cell').play();"><button id="startButton">Play</button></a>
+            <div id="wallet-section">
+              <button id="connect-wallet">Connect Wallet</button>
+              <div id="wallet-info" style="display:none">
+                <p>Account: <span id="account-address"></span></p>
+                <p>Balance: <span id="account-balance"></span> DOT</p>
+              </div>
+            </div>
+            <button id="startButton" onclick="document.getElementById('spawn_cell').play();">Play</button>
             <button id="spectateButton">Spectate</button>
             <button id="settingsButton">Settings</button>
             <br />
@@ -59,6 +66,161 @@
     </div>
     <!-- JS -->
     <script src="//code.jquery.com/jquery-2.2.0.min.js"></script>
+    
+    <!-- Integrated wallet connection (similar to our working standalone test) -->
+    <!-- IMPORTANT: Put this BEFORE app.js to ensure our handlers are set up first -->
+    <script type="module">
+        console.log('Wallet module script started');
+        
+        // Debug logger function
+        function logWallet(message, data) {
+            const timestamp = new Date().toLocaleTimeString();
+            let logMessage = `[WALLET ${timestamp}] ${message}`;
+            
+            if (data !== undefined) {
+                console.log(logMessage, data);
+            } else {
+                console.log(logMessage);
+            }
+        }
+
+        // Store connected wallet info globally so game logic can access it
+        window.connectedWallet = null;
+        
+        // Wait for DOM to be ready
+        document.addEventListener('DOMContentLoaded', async () => {
+            logWallet('DOM loaded in wallet module');
+            
+            const connectWalletBtn = document.getElementById('connect-wallet');
+            const walletInfoDiv = document.getElementById('wallet-info');
+            const accountAddressSpan = document.getElementById('account-address');
+            const accountBalanceSpan = document.getElementById('account-balance');
+            
+            if (!connectWalletBtn) {
+                logWallet('ERROR: Connect wallet button not found!');
+                return;
+            }
+            
+            logWallet('Found wallet button:', connectWalletBtn);
+            
+            // Load Polkadot extension functions
+            async function loadPolkadotExtension() {
+                try {
+                    logWallet('Importing Polkadot extension-dapp from CDN...');
+                    const module = await import('https://cdn.jsdelivr.net/npm/@polkadot/extension-dapp@0.46.5/+esm');
+                    logWallet('Import successful', Object.keys(module));
+                    return module;
+                } catch (error) {
+                    logWallet('Error importing Polkadot extension', error);
+                    throw error;
+                }
+            }
+            
+            // Connect wallet handler
+            connectWalletBtn.addEventListener('click', async () => {
+                logWallet('Connect button clicked');
+                connectWalletBtn.disabled = true;
+                connectWalletBtn.textContent = 'Connecting...';
+                
+                try {
+                    // Load the extension
+                    const { web3Accounts, web3Enable } = await loadPolkadotExtension();
+                    
+                    // Enable the extension
+                    logWallet('Enabling web3 extensions...');
+                    const extensions = await web3Enable('Synergy Game');
+                    logWallet('Extensions enabled', extensions);
+                    
+                    if (extensions.length === 0) {
+                        throw new Error('No Polkadot.js extension found. Please install the extension.');
+                    }
+                    
+                    // Get accounts
+                    logWallet('Getting accounts...');
+                    const accounts = await web3Accounts();
+                    logWallet('Accounts received', accounts);
+                    
+                    // Update UI
+                    if (accounts.length > 0) {
+                        const firstAccount = accounts[0];
+                        const accountName = firstAccount.meta.name || 'Unnamed';
+                        
+                        // Store connected account globally for the game logic to use
+                        window.connectedWallet = {
+                            address: firstAccount.address,
+                            name: accountName,
+                            account: firstAccount
+                        };
+                        
+                        // Update wallet info display
+                        accountAddressSpan.textContent = firstAccount.address;
+                        accountBalanceSpan.textContent = accountName;
+                        
+                        // Auto-fill the player name input with the account name
+                        const playerNameInput = document.getElementById('playerNameInput');
+                        if (playerNameInput) {
+                            // Make sure the name only contains valid characters for the game
+                            // (alphanumeric and underscores)
+                            const sanitizedName = accountName.replace(/\W/g, '');
+                            playerNameInput.value = sanitizedName;
+                            logWallet(`Set player name to account name: ${sanitizedName}`);
+                        }
+                        
+                        walletInfoDiv.style.display = 'block';
+                        connectWalletBtn.style.display = 'none';
+                        
+                        logWallet('Successfully connected to wallet!');
+                    } else {
+                        throw new Error('No accounts found in the extension');
+                    }
+                } catch (error) {
+                    logWallet('Error connecting to wallet', error);
+                    alert('Wallet connection error: ' + error.message);
+                    connectWalletBtn.disabled = false;
+                    connectWalletBtn.textContent = 'Connect Wallet';
+                }
+            });
+            
+            // Make sure the button is ready
+            logWallet('Wallet integration ready');
+        });
+    </script>
+    
+    <!-- Add app.js after our wallet integration script -->
     <script src="js/app.js"></script>
+    
+    <!-- Override app.js button handling -->
+    <script>
+        // Fix the game's button handling
+        window.addEventListener('load', function() {
+            console.log('Fixing button handlers');
+            const startBtn = document.getElementById('startButton');
+            if (startBtn) {
+                // Replace the existing onclick with one that checks wallet first
+                const originalOnclick = startBtn.onclick;
+                startBtn.onclick = function(event) {
+                    // Check if wallet info is showing (meaning wallet is connected)
+                    const walletInfo = document.getElementById('wallet-info');
+                    if (walletInfo && walletInfo.style.display === 'block' && window.connectedWallet) {
+                        console.log('Wallet connected, allowing game start');
+                        
+                        // Store wallet address in global player object for use in game
+                        if (window.global) {
+                            window.global.walletAddress = window.connectedWallet.address;
+                            console.log('Added wallet address to player:', window.global.walletAddress);
+                        }
+                        
+                        if (originalOnclick) originalOnclick.call(this, event);
+                    } else {
+                        console.log('Please connect wallet first');
+                        alert('Please connect your wallet before starting the game');
+                        event.preventDefault();
+                        return false;
+                    }
+                };
+                console.log('Start button handler modified');
+            }
+        }, false);
+    </script>
 </body>
 </html>

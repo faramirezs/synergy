@@ -56,16 +56,16 @@ window.onload = function () {
         startGame('spectator');
     };
 
-    btn.onclick = function () {
+    // btn.onclick = function () {
 
-        // Checks if the nick is valid.
-        if (validNick()) {
-            nickErrorText.style.opacity = 0;
-            startGame('player');
-        } else {
-            nickErrorText.style.opacity = 1;
-        }
-    };
+    //     // Checks if the nick is valid.
+    //     if (validNick()) {
+    //         nickErrorText.style.opacity = 0;
+    //         startGame('player');
+    //     } else {
+    //         nickErrorText.style.opacity = 1;
+    //     }
+    // };
 
     var settingsMenu = document.getElementById('settingsButton');
     var settings = document.getElementById('settings');
@@ -84,7 +84,7 @@ window.onload = function () {
         if (key === global.KEY_ENTER) {
             if (validNick()) {
                 nickErrorText.style.opacity = 0;
-                startGame('player');
+                // startGame('player');
             } else {
                 nickErrorText.style.opacity = 1;
             }
@@ -130,10 +130,15 @@ var showMassSetting = document.getElementById('showMass');
 showMassSetting.onchange = settings.toggleMass;
 
 var continuitySetting = document.getElementById('continuity');
-continuitySetting.onchange = settings.toggleContinuity;
+// continuitySetting.onchange = settings.toggleContinuity;
 
 var roundFoodSetting = document.getElementById('roundFood');
-roundFoodSetting.onchange = settings.toggleRoundFood;
+// roundFoodSetting.onchange = settings.toggleRoundFood;
+
+var darkModeSetting = document.getElementById('darkMode');
+if (darkModeSetting) {
+    darkModeSetting.onchange = settings.toggleDarkMode;
+}
 
 var c = window.canvas.cv;
 var graph = c.getContext('2d');
@@ -175,6 +180,13 @@ function setupSocket(socket) {
         player.screenWidth = global.screen.width;
         player.screenHeight = global.screen.height;
         player.target = window.canvas.target;
+        
+        // Include wallet address if available
+        if (window.connectedWallet) {
+            player.walletAddress = window.connectedWallet.address;
+            console.log('Adding wallet address to player object:', player.walletAddress);
+        }
+        
         global.player = player;
         window.chat.player = player;
         socket.emit('gotit', player);

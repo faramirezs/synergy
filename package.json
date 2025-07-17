@@ -72,6 +72,8 @@
     "@babel/core": "^7.21.8",
     "@babel/eslint-parser": "^7.21.8",
     "@babel/preset-env": "^7.21.5",
+    "@polkadot/api": "^16.4.1",
+    "@polkadot/extension-dapp": "^0.61.4",
     "babel-loader": "^9.1.2",
     "chai": "^4.3.7",
     "eslint": "^8.40.0",
