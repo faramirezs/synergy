@@ -2,10 +2,10 @@
 
 #[ink::contract]
 mod agario_buyin {
+    use core::convert::TryInto;
+    use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
     use ink::H160;
-    use ink::prelude::vec::Vec;
-    use core::convert::TryInto;
 
     /// Defines the storage of your contract.
     /// Enhanced storage structure with timing and game management
@@ -260,7 +260,7 @@ mod agario_buyin {
                     } else {
                         Some(game_end_time.saturating_sub(now))
                     }
-                },
+                }
                 None => None, // No time limit
             }
         }
@@ -294,13 +294,14 @@ mod agario_buyin {
             self.buy_in_amount = buy_in;
             self.min_players = min_players;
             self.registration_deadline = now.saturating_add(
-                (registration_minutes as u64).saturating_mul(60).saturating_mul(1000)
+                (registration_minutes as u64)
+                    .saturating_mul(60)
+                    .saturating_mul(1000),
             ); // Convert minutes to milliseconds
 
             // Set game duration if specified
-            self.game_duration = game_duration_minutes.map(|minutes|
-                (minutes as u64).saturating_mul(60).saturating_mul(1000)
-            );
+            self.game_duration = game_duration_minutes
+                .map(|minutes| (minutes as u64).saturating_mul(60).saturating_mul(1000));
 
             // Reset player data
             self.player_count = 0;
@@ -427,7 +428,7 @@ mod agario_buyin {
                             self.refund_all_players()?;
                         }
                     }
-                },
+                }
                 GameState::InProgress => {
                     // Check if game duration exceeded
                     if let Some(duration) = self.game_duration {
@@ -439,7 +440,7 @@ mod agario_buyin {
                             // });
                         }
                     }
-                },
+                }
                 _ => {}
             }
             Ok(())
@@ -459,7 +460,7 @@ mod agario_buyin {
                     if self.env().caller() != self.game_admin {
                         return Err(Error::NotAdmin);
                     }
-                },
+                }
                 GameEndReason::TimeLimit | GameEndReason::LastPlayerStanding => {
                     // Game server can report these, for MVP we'll allow any caller
                     // In production, you'd want to verify the caller is the authorized game server
@@ -512,7 +513,8 @@ mod agario_buyin {
             }
 
             // Calculate admin fee
-            let admin_cut = self.prize_pool
+            let admin_cut = self
+                .prize_pool
                 .saturating_mul(self.admin_fee_percentage as Balance)
                 .checked_div(100)
                 .unwrap_or(0);
@@ -528,14 +530,16 @@ mod agario_buyin {
                     .checked_div(100)
                     .unwrap_or(0);
                 if prize > 0 {
-                    self.env().transfer(*winner, prize.into())
+                    self.env()
+                        .transfer(*winner, prize.into())
                         .map_err(|_| Error::TransferFailed)?;
                 }
             }
 
             // Transfer admin fee
             if admin_cut > 0 {
-                self.env().transfer(self.game_admin, admin_cut.into())
+                self.env()
+                    .transfer(self.game_admin, admin_cut.into())
                     .map_err(|_| Error::TransferFailed)?;
             }
 
@@ -584,7 +588,8 @@ mod agario_buyin {
             let _players_refunded = self.player_count;
 
             if self.player_count > 0 && self.prize_pool > 0 {
-                let _refund_per_player = self.prize_pool
+                let _refund_per_player = self
+                    .prize_pool
                     .checked_div(self.player_count as Balance)
                     .unwrap_or(0);
 
@@ -897,7 +902,11 @@ mod agario_buyin {
             let percentages = vec![50, 30, 20]; // Total 100%
 
             // Submit winners
-            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            let result = contract.submit_winners(
+                winners.clone(),
+                percentages.clone(),
+                GameEndReason::TimeLimit,
+            );
             assert!(result.is_ok());
 
             // Verify game state reset
@@ -929,7 +938,8 @@ mod agario_buyin {
             let winners = vec![H160::from([1; 20]), H160::from([2; 20])];
             let percentages = vec![50, 30]; // Total 80%
 
-            let result = contract.submit_winners(winners, percentages, GameEndReason::LastPlayerStanding);
+            let result =
+                contract.submit_winners(winners, percentages, GameEndReason::LastPlayerStanding);
             assert!(result.is_ok());
             assert_eq!(contract.game_state, GameState::Inactive);
         }
@@ -962,17 +972,29 @@ mod agario_buyin {
 
             // Test Inactive state
             contract.game_state = GameState::Inactive;
-            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            let result = contract.submit_winners(
+                winners.clone(),
+                percentages.clone(),
+                GameEndReason::TimeLimit,
+            );
             assert!(matches!(result, Err(Error::GameNotInCorrectState)));
 
             // Test AcceptingDeposits state
             contract.game_state = GameState::AcceptingDeposits;
-            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            let result = contract.submit_winners(
+                winners.clone(),
+                percentages.clone(),
+                GameEndReason::TimeLimit,
+            );
             assert!(matches!(result, Err(Error::GameNotInCorrectState)));
 
             // Test InProgress state
             contract.game_state = GameState::InProgress;
-            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            let result = contract.submit_winners(
+                winners.clone(),
+                percentages.clone(),
+                GameEndReason::TimeLimit,
+            );
             assert!(matches!(result, Err(Error::GameNotInCorrectState)));
 
             // Only WaitingForResults should work
@@ -982,7 +1004,7 @@ mod agario_buyin {
             assert!(result.is_ok());
         }
 
-                /// 🎯 MVP CRITICAL TEST: Complete happy path flow (start → deposit → end)
+        /// 🎯 MVP CRITICAL TEST: Complete happy path flow (start → deposit → end)
         /// This test simulates the exact flow that will be demonstrated in the hackathon
         #[ink::test]
         fn mvp_complete_happy_path_flow() {
@@ -1041,7 +1063,11 @@ mod agario_buyin {
             let winners = vec![player1, player2]; // 1st and 2nd place
             let percentages = vec![60, 40]; // 60% to winner, 40% to second place
 
-            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::LastPlayerStanding);
+            let result = contract.submit_winners(
+                winners.clone(),
+                percentages.clone(),
+                GameEndReason::LastPlayerStanding,
+            );
             assert!(result.is_ok());
 
             // STEP 6: Verify game reset for next round (Demo Step 4)
@@ -1109,7 +1135,11 @@ mod agario_buyin {
             // Error Case 2: Operations in wrong game state
             let winners = vec![H160::from([1; 20])];
             let percentages = vec![100];
-            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            let result = contract.submit_winners(
+                winners.clone(),
+                percentages.clone(),
+                GameEndReason::TimeLimit,
+            );
             assert!(matches!(result, Err(Error::GameNotInCorrectState))); // Game not started
 
             // Error Case 3: Invalid winner data
