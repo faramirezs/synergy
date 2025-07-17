@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [-] 1. Set up project structure and core contract foundation
+- [ ] 1. Set up project structure and core contract foundation
   - Create new ink! contract project using `cargo contract new agario_buyin`
   - Configure Cargo.toml with proper dependencies: ink v6, scale, scale-info with SCALE codec derives
   - Set up lib.rs with `#![cfg_attr(not(feature = "std"), no_std, no_main)]` for Wasm compatibility

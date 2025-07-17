@@ -5,6 +5,8 @@ authors = ["[your_name] <[your_email]>"]
 edition = "2021"
 
 [lib]
+name = "agario_buyin"
+path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
