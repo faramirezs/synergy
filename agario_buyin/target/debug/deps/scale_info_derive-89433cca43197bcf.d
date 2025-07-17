@@ -1,0 +1,8 @@
+/Users/alejandroramirez/synergy/agario_buyin/target/debug/deps/scale_info_derive-89433cca43197bcf.d: /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/lib.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/attr.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/trait_bounds.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/utils.rs
+
+/Users/alejandroramirez/synergy/agario_buyin/target/debug/deps/libscale_info_derive-89433cca43197bcf.dylib: /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/lib.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/attr.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/trait_bounds.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/utils.rs
+
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/lib.rs:
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/attr.rs:
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/trait_bounds.rs:
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-derive-2.11.6/src/utils.rs:

@@ -1,0 +1,9 @@
+/Users/alejandroramirez/synergy/agario_buyin/target/debug/deps/ink_metadata-09059a69d1140f20.d: /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/lib.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/layout/mod.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/layout/validate.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/specs.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/utils.rs
+
+/Users/alejandroramirez/synergy/agario_buyin/target/debug/deps/libink_metadata-09059a69d1140f20.rmeta: /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/lib.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/layout/mod.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/layout/validate.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/specs.rs /Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/utils.rs
+
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/lib.rs:
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/layout/mod.rs:
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/layout/validate.rs:
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/specs.rs:
+/Users/alejandroramirez/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ink_metadata-5.1.1/src/utils.rs:

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Set up project structure and core contract foundation
+- [-] 1. Set up project structure and core contract foundation
   - Create new ink! contract project using `cargo contract new agario_buyin`
   - Configure Cargo.toml with proper dependencies: ink v6, scale, scale-info with SCALE codec derives
   - Set up lib.rs with `#![cfg_attr(not(feature = "std"), no_std, no_main)]` for Wasm compatibility
@@ -69,10 +69,11 @@
   - Add state validation: if self.game_state != GameState::InProgress { return Err(Error::GameNotInCorrectState) }
   - Validate winners: if winners.is_empty() { return Err(Error::NoWinners) }
   - Calculate payouts: admin_cut = self.prize_pool * self.admin_fee_percentage as Balance / 100, winner_share = (self.prize_pool - admin_cut) / winners.len() as Balance
-  - Update state first: self.game_state = GameState::Inactive, reset all game variables
-  - Use self.env().transfer() for fund transfers with proper error handling
-  - Emit GameEnded event with #[ink(topic)] on winners vector for efficient filtering
-  - Write unit tests with mock transfers using conditional compilation #[cfg(test)]
+  - Update state first: self.game_state = GameState::Inactive, reset all game variables (players mapping, counters)
+  - Use self.env().transfer(recipient, amount).map_err(|_| Error::TransferFailed)? for fund transfers with proper error handling
+  - Transfer admin_cut to self.game_admin first, then winner_share to each winner in winners vector
+  - Emit GameEnded event: self.env().emit_event(GameEnded { winners: winners.clone(), admin_payout: admin_cut, winner_payout: winner_share })
+  - Write unit tests with mock transfers using conditional compilation #[cfg(test)] and mock_transfer_calls tracking
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 6.1_
 
 - [ ] 8. Implement query functions for contract state
@@ -86,10 +87,13 @@
   - _Requirements: 8.2, 8.4_
 
 - [ ] 9. Implement comprehensive error handling
-  - Ensure all functions return Result<(), Error> or appropriate Result type
-  - Add proper error propagation throughout the contract
-  - Implement custom error messages for each error variant
-  - Test all error paths and edge cases
+  - Define pub type Result<T> = core::result::Result<T, Error> for consistent error handling
+  - Ensure all state-changing functions return Result<(), Error> and query functions return appropriate Result types
+  - Add proper error propagation using ? operator: self.env().transfer(recipient, amount).map_err(|_| Error::TransferFailed)?
+  - Implement Error enum with #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)] and #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+  - Use pattern matching for error handling: if condition { return Err(Error::SpecificError) }
+  - Test all error paths using assert!(matches!(result, Err(Error::SpecificError))) in unit tests
+  - Ensure error messages are descriptive and help frontend developers understand failure reasons
   - _Requirements: 5.2, 5.3, 5.4, 8.2_
 
 - [ ] 10. Implement event system with proper indexing
@@ -133,11 +137,12 @@
 
 - [ ] 14. Implement storage optimization and fallible operations
   - Use ink::storage::Mapping<AccountId, ()> for O(1) player lookups instead of Vec for gas efficiency
-  - Implement try_insert(), try_get(), try_remove() methods for dynamic data operations to prevent buffer overflows
-  - Ensure all storage operations stay within 16 KiB static buffer limits using fallible APIs
-  - Add storage cleanup in reset_game_state(): clear players mapping to allow deposit reclamation
-  - Use Blake2_128Concat hashing for mapping keys (default for ink::storage::Mapping)
-  - Avoid storing large dynamic data structures; use counters and mappings instead
+  - Implement fallible operations: if self.players.try_insert(&caller, &()).is_err() { handle_error } for dynamic data
+  - Use try_get() for safe retrieval: self.players.try_get(&player).unwrap_or(None) to prevent buffer overflow panics
+  - Ensure all storage operations stay within 16 KiB static buffer limits using fallible APIs from ink! v5+
+  - Add storage cleanup in reset_game_state(): use self.players.remove(&player) to allow storage deposit reclamation
+  - Use Blake2_128Concat hashing for mapping keys (default for ink::storage::Mapping) for transparent key access
+  - Avoid storing large dynamic data structures like Vec<String>; use counters and mappings with fixed-size values instead
   - _Requirements: 6.2, 7.2, 7.6_
 
 - [ ] 15. Add linting compliance and security validation

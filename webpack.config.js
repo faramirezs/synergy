@@ -7,6 +7,13 @@ module.exports = (isProduction) => ({
     },
     devtool: false,
     target: 'web',
+    resolve: {
+        fallback: {
+            "fs": false,
+            "path": false,
+            "crypto": false
+        }
+    },
     optimization: {
         minimize: true,
         nodeEnv: 'production'
