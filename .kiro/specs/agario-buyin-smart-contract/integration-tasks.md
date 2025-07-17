@@ -14,6 +14,7 @@
 - [ ] Create `src/client/js/papi-service.js` with modern PAPI connection
 - [ ] Setup local signers (AliceSigner, BobSigner, CharlieSigner) for demo
 - [ ] Create wallet interface with account switching
+- [ ] **OPTIONAL**: Add extension signer support as fallback for production demo
 - [ ] **MVP Success**: Modern SDK connected with local test accounts
 
 ### **Task 2: Modern Contract Interface Setup with H160 Addresses** (45 minutes)
@@ -239,6 +240,70 @@ export const createLocalSigners = () => {
       const results = await Promise.all(mappingPromises);
       console.log("Account mapping results:", results);
       return results;
+    }
+  };
+};
+```
+
+### **Hybrid Signer Setup (Local + Extension)** (`src/client/js/hybrid-signers.js`)
+```javascript
+import { Sr25519Account } from "@polkadot-api/substrate-bindings"
+import { getInjectedExtensions, connectInjectedExtension } from "@polkadot-api/pjs-signer"
+
+// Hybrid approach: Local signers for demo, extension for production
+export const createHybridSigners = () => {
+  // Local signers (always available)
+  const localSigners = {
+    AliceSigner: Sr25519Account.fromUri("//Alice"),
+    BobSigner: Sr25519Account.fromUri("//Bob"),
+    CharlieSigner: Sr25519Account.fromUri("//Charlie"),
+    DaveSigner: Sr25519Account.fromUri("//Dave"),
+    EveSigner: Sr25519Account.fromUri("//Eve")
+  };
+
+  return {
+    // Always use local signers for reliable demos
+    getLocalSigner: (name) => localSigners[name],
+
+    // Optional extension support for production-like demo
+    async getExtensionSigner() {
+      try {
+        const extensions = getInjectedExtensions();
+        if (extensions.length === 0) {
+          console.log("No extensions found, using local signers");
+          return null;
+        }
+
+        const polkadotExtension = extensions.find(e => e.name === "polkadot-js");
+        if (!polkadotExtension) {
+          console.log("Polkadot.js extension not found, using local signers");
+          return null;
+        }
+
+        const accounts = await connectInjectedExtension(polkadotExtension.name);
+        console.log("Extension connected successfully");
+        return accounts[0]; // Return first account
+
+      } catch (error) {
+        console.log("Extension connection failed, using local signers:", error);
+        return null;
+      }
+    },
+
+    // Demo-safe signer selection
+    async getDemoSigner(accountName, useExtension = false) {
+      if (useExtension) {
+        const extensionSigner = await this.getExtensionSigner();
+        if (extensionSigner) {
+          return { type: 'extension', signer: extensionSigner };
+        }
+      }
+
+      // Always fallback to local signers
+      return {
+        type: 'local',
+        signer: this.getLocalSigner(accountName)
+      };
     }
   };
 };
