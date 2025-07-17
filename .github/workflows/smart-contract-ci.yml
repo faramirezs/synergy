@@ -1,0 +1,239 @@
+name: Smart Contract CI/CD
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths: ['agario_buyin/**']
+  pull_request:
+    branches: [main, master, develop]
+    paths: ['agario_buyin/**']
+  workflow_dispatch:
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test Smart Contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./agario_buyin
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+          components: rust-src
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            agario_buyin/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo-contract
+        run: |
+          cargo install cargo-contract --force --locked
+
+      - name: Check contract compilation
+        run: cargo check
+
+      - name: Run unit tests
+        run: cargo test --verbose
+
+      - name: Build contract (debug)
+        run: cargo contract build
+
+      - name: Build contract (release)
+        run: cargo contract build --release
+
+      - name: Verify contract artifacts
+        run: |
+          ls -la target/ink/
+          file target/ink/agario_buyin.wasm
+          file target/ink/agario_buyin.contract
+
+      - name: Upload contract artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: smart-contract-artifacts-${{ github.sha }}
+          path: |
+            agario_buyin/target/ink/agario_buyin.contract
+            agario_buyin/target/ink/agario_buyin.wasm
+            agario_buyin/target/ink/agario_buyin.json
+          retention-days: 30
+
+  lint:
+    name: Lint Smart Contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./agario_buyin
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            agario_buyin/target
+          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Install cargo-contract
+        run: cargo install cargo-contract --force --locked
+
+      - name: Run cargo-contract linting (if possible)
+        continue-on-error: true
+        run: cargo contract build --lint || echo "Linting failed, continuing..."
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./agario_buyin
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Run security audit
+        run: cargo audit
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    defaults:
+      run:
+        working-directory: ./agario_buyin
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+          components: rust-src
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            agario_buyin/target
+          key: ${{ runner.os }}-cargo-e2e-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-contract
+        run: cargo install cargo-contract --force --locked
+
+      - name: Install substrate-contracts-node
+        run: |
+          cargo install contracts-node --git https://github.com/paritytech/substrate-contracts-node.git --force --locked
+
+      - name: Run E2E tests
+        run: cargo test --features e2e-tests
+
+  deploy-artifacts:
+    name: Deploy Contract Artifacts
+    runs-on: ubuntu-latest
+    needs: [test, lint, security, integration]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    defaults:
+      run:
+        working-directory: ./agario_buyin
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+          components: rust-src
+
+      - name: Install cargo-contract
+        run: cargo install cargo-contract --force --locked
+
+      - name: Build production contract
+        run: cargo contract build --release
+
+      - name: Create deployment package
+        run: |
+          mkdir -p ../deployment/contracts
+          cp target/ink/agario_buyin.contract ../deployment/contracts/
+          cp target/ink/agario_buyin.wasm ../deployment/contracts/
+          cp target/ink/agario_buyin.json ../deployment/contracts/
+          echo "Contract built at $(date)" > ../deployment/contracts/BUILD_INFO.txt
+          echo "Git SHA: ${{ github.sha }}" >> ../deployment/contracts/BUILD_INFO.txt
+          echo "Git Ref: ${{ github.ref }}" >> ../deployment/contracts/BUILD_INFO.txt
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: production-contract-${{ github.sha }}
+          path: deployment/contracts/
+          retention-days: 90
+
+      - name: Create GitHub Release (on tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Smart Contract Release ${{ github.ref }}
+          draft: false
+          prerelease: false

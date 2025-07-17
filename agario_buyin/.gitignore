@@ -1,0 +1,31 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+
+# Logs
+*.log
+
+# Temporary files
+*~
+.#*
+
+# Keep important contract artifacts for deployment
+!/target/ink/*.contract
+!/target/ink/*.wasm
+!/target/ink/*.json
+
+# But ignore everything else in target/
+/target/*
+!/target/ink/
