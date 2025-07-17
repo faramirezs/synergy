@@ -20,7 +20,21 @@ console.log('[DEBUG] Environment:', process.env.NODE_ENV || 'development');
 const express = require('express');
 const app = express();
 const http = require('http').Server(app);
-const io = require('socket.io')(http);
+
+// Enhanced Socket.io configuration for Chrome compatibility and Azure deployment
+const io = require('socket.io')(http, {
+    cors: {
+        origin: "*", // Allow all origins for development - restrict in production
+        methods: ["GET", "POST"],
+        allowedHeaders: ["Content-Type"],
+        credentials: true
+    },
+    transports: ['websocket', 'polling'], // Support both transports
+    allowEIO3: true, // Backward compatibility
+    pingTimeout: 60000,
+    pingInterval: 25000
+});
+
 const SAT = require('sat');
 
 const gameLogic = require('./game-logic');

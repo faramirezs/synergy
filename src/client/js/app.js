@@ -1,4 +1,5 @@
-var io = require('socket.io-client');
+// Remove the require since we're loading socket.io from script tag
+// var io = require('socket.io-client');
 var render = require('./render');
 var ChatClient = require('./chat-client');
 var Canvas = require('./canvas');
@@ -27,7 +28,43 @@ function startGame(type) {
     document.getElementById('startMenuWrapper').style.maxHeight = '0px';
     document.getElementById('gameAreaWrapper').style.opacity = 1;
     if (!socket) {
-        socket = io({ query: "type=" + type });
+        // Enhanced Socket.io connection for Chrome compatibility
+        const socketOptions = {
+            query: "type=" + type,
+            transports: ['websocket', 'polling'], // Support fallback transports
+            forceNew: true,
+            reconnection: true,
+            timeout: 5000,
+            // Auto-detect protocol (HTTP vs HTTPS)
+            secure: window.location.protocol === 'https:',
+            // Handle both local development and production
+            withCredentials: true
+        };
+        
+        // For production HTTPS sites, ensure secure connection
+        if (window.location.protocol === 'https:') {
+            socketOptions.upgrade = true;
+            socketOptions.rememberUpgrade = true;
+        }
+        
+        socket = io(socketOptions);
+        
+        // Add connection status logging for debugging
+        socket.on('connect', () => {
+            console.log('✅ Socket.io connected successfully');
+            console.log('Transport:', socket.io.engine.transport.name);
+        });
+        
+        socket.on('connect_error', (error) => {
+            console.error('❌ Socket.io connection error:', error);
+            handleConnectionError(error);
+        });
+        
+        socket.on('disconnect', (reason) => {
+            console.log('🔌 Socket.io disconnected:', reason);
+            handleDisconnect();
+        });
+        
         setupSocket(socket);
     }
     if (!global.animLoopHandle)
@@ -154,10 +191,29 @@ $("#split").click(function () {
 });
 
 function handleDisconnect() {
-    socket.close();
+    if (socket) {
+        socket.close();
+    }
     if (!global.kicked) { // We have a more specific error message 
         render.drawErrorMessage('Disconnected!', graph, global.screen);
     }
+}
+
+// Enhanced error handling for Chrome debugging
+function handleConnectionError(error) {
+    console.error('Socket.io connection error:', error);
+    let errorMessage = 'Connection failed!';
+    
+    // Provide specific error messages for common Chrome issues
+    if (error.message && error.message.includes('websocket')) {
+        errorMessage = 'WebSocket connection failed. Try refreshing the page.';
+    } else if (error.type === 'TransportError') {
+        errorMessage = 'Network connection failed. Check your internet connection.';
+    } else if (error.description && error.description.includes('xhr')) {
+        errorMessage = 'Connection blocked. Try disabling ad blockers or VPN.';
+    }
+    
+    render.drawErrorMessage(errorMessage, graph, global.screen);
 }
 
 // socket stuff.
@@ -170,7 +226,7 @@ function setupSocket(socket) {
     });
 
     // Handle error.
-    socket.on('connect_error', handleDisconnect);
+    socket.on('connect_error', handleConnectionError);
     socket.on('disconnect', handleDisconnect);
 
     // Handle connection.
