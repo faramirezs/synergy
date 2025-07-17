@@ -3,6 +3,7 @@
 #[ink::contract]
 mod agario_buyin {
     use ink::storage::Mapping;
+        use ink::H160;
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
@@ -10,7 +11,7 @@ mod agario_buyin {
     #[ink(storage)]
     pub struct AgarioBuyin {
         /// Administrative fields
-        game_admin: AccountId,
+        game_admin: H160,
         admin_fee_percentage: u8,
 
         /// Game state management
@@ -19,7 +20,7 @@ mod agario_buyin {
         registration_deadline: Timestamp,
 
         /// Player management
-        players: Mapping<AccountId, ()>,
+        players: Mapping<H160, ()>,
         player_count: u32,
         prize_pool: Balance,
     }
