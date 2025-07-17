@@ -1,213 +1,229 @@
-# Implementation Plan - ink! v6.0.0-alpha (H160 Migration)
+# 🚀 HACKATHON MVP - Agario Smart Contract Tasks
 
-> **🔄 MIGRATION NOTE**: This implementation targets ink! v6.0.0-alpha which uses **pallet-revive** instead of pallet-contracts. Key changes:
-> - **AccountId → H160**: Uses Ethereum-style 20-byte addresses instead of 32-byte Substrate addresses
-> - **Enhanced Gas Model**: Better gas estimation and execution
-> - **Revive Compatibility**: Compatible with Ethereum tooling and addresses
-> - **Backward Compatibility**: Smart contracts need migration for H160 address format
+> **⚡ HACKATHON FOCUS**: Minimal Viable Product for working demo. Advanced features marked for post-hackathon development.
 
-- [x] 1. Set up project structure and core contract foundation ✅ COMPLETED
-  - ✅ Create new ink! contract project using `cargo contract new agario_buyin`
-  - ✅ Configure Cargo.toml with proper dependencies: ink v6.0.0-alpha, scale, scale-info with SCALE codec derives
-  - ✅ Set up lib.rs with `#![cfg_attr(not(feature = "std"), no_std, no_main)]` for Wasm compatibility
-  - ✅ Configure crate-type as `["cdylib"]` for Wasm blob generation
-  - ✅ Add dev-dependencies for ink_e2e testing framework
-  - ✅ Set up feature flags: default = ["std"], std = ["ink/std"], e2e-tests = []
-  - ✅ Create complete #[ink::contract] module structure with storage, constructor, and basic functionality
-  - ✅ Implement GameState enum and Error enum with proper SCALE codec derives
-  - ✅ Add constructor with validation and unit tests (2/2 passing)
-  - ✅ Verify successful build: `cargo contract build --release` generates optimized 1.9KB wasm
-  - ✅ **H160 Migration**: Update all address types from AccountId to H160 for Ethereum-style addresses
-  - _Requirements: 7.1, 7.3_ ✅ **COMPLETED**
+## 🎯 **MVP GOAL**: Working agario contract with basic admin controls and player registration that can be demonstrated in the hackathon.
 
-- [ ] 2. Implement core data types and storage structure (H160 Migration)
-  - Define GameState enum with #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)] and #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-  - Create Error enum with variants: NotAdmin, GameNotInCorrectState, IncorrectBuyInAmount, PlayerAlreadyDeposited, NoWinners, RegistrationPeriodNotOver, RegistrationPeriodOver, TransferFailed
-  - **🔄 H160 MIGRATION**: Implement #[ink(storage)] AgarioBuyin struct with: game_admin: **H160**, admin_fee_percentage: u8, game_state: GameState, buy_in_amount: Balance, registration_deadline: Timestamp, players: Mapping<**H160**, ()>, player_count: u32, prize_pool: Balance
-  - Use ink::storage::Mapping<**H160**, ()> for gas-efficient player storage with O(1) lookups
-  - Add proper SCALE codec derives for all custom types to ensure ABI compatibility
-  - **Note**: H160 represents 20-byte Ethereum-style addresses (0x1234...abcd format)
-  - _Requirements: 5.1, 7.3, 8.1_
+---
 
-- [ ] 3. Implement contract constructor with validation (H160 Update)
-  - Create #[ink(constructor)] pub fn new(admin_fee: u8) -> Result<Self, Error> function (constructors are implicitly payable)
-  - Add validation: if admin_fee > 100 { return Err(Error::InvalidAdminFee) } before creating Self instance
-  - **🔄 H160 MIGRATION**: Use Self::env().caller() to set game_admin to deployer's **H160** address
-  - Initialize all fields: game_state: GameState::Inactive, players: Mapping::default(), player_count: 0, prize_pool: 0, registration_deadline: 0, buy_in_amount: 0
-  - Return Ok(Self { game_admin, admin_fee_percentage: admin_fee, ... }) on successful validation
-  - Write #[ink::test] unit tests using ink::env::test module for environment mocking
-  - **🔄 H160 TESTING**: Test with mock H160 addresses (0x1234...abcd format) instead of AccountId
-  - Test valid admin fees (0-100) with assert!(matches!(result, Ok(_))) and invalid fees (>100) with assert!(matches!(result, Err(Error::InvalidAdminFee)))
-  - _Requirements: 1.1, 1.2_
+## 🔥 **MUST HAVE - Core MVP Tasks** (Target: 4-6 hours)
 
-- [ ] 4. Implement game administration functions (H160 Update)
-  - Create #[ink(message)] pub fn start_game(&mut self, buy_in: Balance, registration_period: Timestamp) -> Result<(), Error>
-  - **🔄 H160 MIGRATION**: Add access control: if self.env().caller() != self.game_admin { return Err(Error::NotAdmin) } (caller returns H160)
-  - Implement state validation: if self.game_state != GameState::Inactive { return Err(Error::GameNotInCorrectState) }
-  - Calculate registration deadline: self.env().block_timestamp() + registration_period
-  - Reset game state: players.clear(), player_count = 0, prize_pool = 0
-  - **🔄 H160 EVENTS**: Emit GameStarted event with #[ink(topic)] on buy_in_amount and deadline for efficient filtering
-  - Use self.env().emit_event() for event emission
-  - **🔄 H160 TESTING**: Write unit tests with ink::env::test::set_caller() for access control testing using H160 addresses
-  - _Requirements: 1.3, 1.4, 1.5, 1.6, 5.1, 7.1_
+### **✅ COMPLETED**
+- [x] **Task 1: Project Setup & Foundation** ✅ DONE
+  - ✅ Contract builds successfully with `cargo contract build`
+  - ✅ Unit tests pass (2/2 passing)
+  - ✅ Basic structure in place with AccountId (keeping simple for MVP)
+  - ✅ All dependencies configured correctly
 
-- [ ] 5. Implement player deposit functionality (H160 Migration)
-  - Create #[ink(message, payable)] pub fn deposit(&mut self) -> Result<(), Error> function (payable allows receiving funds)
-  - **🔄 H160 MIGRATION**: Get caller: let caller = self.env().caller() (returns H160) and transferred_value = self.env().transferred_value()
-  - Add state validation: if self.game_state != GameState::AcceptingDeposits { return Err(Error::GameNotInCorrectState) }
-  - Implement deadline check: if self.env().block_timestamp() >= self.registration_deadline { return Err(Error::RegistrationPeriodOver) }
-  - Validate buy-in amount: if self.env().transferred_value() != self.buy_in_amount { return Err(Error::IncorrectBuyInAmount) }
-  - **🔄 H160 STORAGE**: Check duplicate registration: if self.players.contains(&caller) { return Err(Error::PlayerAlreadyDeposited) }
-  - Use self.players.insert(&caller, &()) for O(1) player storage with Blake2_128Concat hashing
-  - Update counters: self.player_count += 1, self.prize_pool += transferred_value
-  - **🔄 H160 EVENTS**: Emit PlayerDeposited event: self.env().emit_event(PlayerDeposited { player: caller, amount: transferred_value })
-  - **🔄 H160 TESTING**: Write unit tests using ink::env::test::set_value_transferred() and ink::env::test::set_block_timestamp() for environment mocking with H160 addresses
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8_
+### **🔥 MVP CRITICAL PATH**
 
-- [ ] 6. Implement automatic game state transition (H160 Compatible)
-  - Create #[ink(message)] pub fn try_begin_game(&mut self) -> Result<(), Error> function
-  - Add state validation: if self.game_state != GameState::AcceptingDeposits { return Err(Error::GameNotInCorrectState) }
-  - Implement deadline validation: if self.env().block_timestamp() < self.registration_deadline { return Err(Error::RegistrationPeriodNotOver) }
-  - Transition game_state to GameState::InProgress when conditions are met
-  - Emit GameBegan event with player_count and prize_pool data for frontend synchronization
-  - **🔄 H160 TESTING**: Write unit tests using ink::env::test::set_block_timestamp() for timing edge cases
-  - Test scenarios: before deadline (should fail), exactly at deadline (should succeed), after deadline (should succeed)
-  - _Requirements: 3.1, 3.2, 3.3, 3.4_
+- [ ] **Task 2: Core Storage & Types** (30 min)
+  ```rust
+  #[ink(storage)]
+  pub struct AgarioBuyin {
+      admin: AccountId,
+      game_state: GameState,
+      buy_in_amount: Balance,
+      players: Mapping<AccountId, ()>,
+      player_count: u32,
+      prize_pool: Balance,
+  }
+  ```
+  - Simple GameState enum: `Inactive | AcceptingDeposits | InProgress`
+  - Basic Error enum: `NotAdmin | WrongState | WrongAmount`
+  - _Target: Get storage compiling_
 
-- [ ] 7. Implement prize distribution with security patterns (H160 Migration)
-  - **🔄 H160 MIGRATION**: Create #[ink(message)] pub fn end_game(&mut self, winners: Vec<**H160**>) -> Result<(), Error>
-  - Implement checks-effects-interactions pattern: CHECKS (access control, state validation), EFFECTS (state updates), INTERACTIONS (transfers)
-  - **🔄 H160 ACCESS**: Add access control: if self.env().caller() != self.game_admin { return Err(Error::NotAdmin) }
-  - Add state validation: if self.game_state != GameState::InProgress { return Err(Error::GameNotInCorrectState) }
-  - Validate winners: if winners.is_empty() { return Err(Error::NoWinners) }
-  - Calculate payouts: admin_cut = self.prize_pool * self.admin_fee_percentage as Balance / 100, winner_share = (self.prize_pool - admin_cut) / winners.len() as Balance
-  - Update state first: self.game_state = GameState::Inactive, reset all game variables (players mapping, counters)
-  - **🔄 H160 TRANSFERS**: Use self.env().transfer(recipient, amount).map_err(|_| Error::TransferFailed)? for fund transfers with proper error handling
-  - Transfer admin_cut to self.game_admin first, then winner_share to each winner in winners vector
-  - **🔄 H160 EVENTS**: Emit GameEnded event: self.env().emit_event(GameEnded { winners: winners.clone(), admin_payout: admin_cut, winner_payout: winner_share })
-  - **🔄 H160 TESTING**: Write unit tests with mock transfers using conditional compilation #[cfg(test)] and mock_transfer_calls tracking
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 6.1_
+- [ ] **Task 3: Essential Functions** (90 min)
+  - `start_game(buy_in: Balance)` - Admin starts game, sets buy-in
+  - `deposit()` - Payable function for players to join
+  - `end_game(winners: Vec<AccountId>)` - Admin distributes prizes
+  - `get_game_state()`, `get_player_count()` - Basic queries
+  - _Target: Core game flow working_
 
-- [ ] 8. Implement query functions for contract state (H160 Update)
-  - Create #[ink(message)] pub fn get_game_state(&self) -> GameState using &self for read-only access
-  - Create #[ink(message)] pub fn get_player_count(&self) -> u32 returning self.player_count
-  - Create #[ink(message)] pub fn get_prize_pool(&self) -> Balance returning self.prize_pool
-  - **🔄 H160 MIGRATION**: Create #[ink(message)] pub fn is_player_registered(&self, player: **H160**) -> bool using self.players.contains(&player)
-  - Add #[ink(message)] pub fn get_registration_deadline(&self) -> Timestamp for frontend timing
-  - **🔄 H160 QUERY**: Add #[ink(message)] pub fn get_admin(&self) -> **H160** returning self.game_admin
-  - **🔄 H160 TESTING**: Write unit tests for all query functions using read-only contract instances with H160 addresses
-  - Test query functions work in all game states
-  - _Requirements: 8.2, 8.4_
+- [ ] **Task 4: Basic Events** (30 min)
+  ```rust
+  #[ink(event)]
+  pub struct GameStarted { buy_in: Balance }
 
-- [ ] 9. Implement comprehensive error handling (H160 Compatible)
-  - Define pub type Result<T> = core::result::Result<T, Error> for consistent error handling
-  - Ensure all state-changing functions return Result<(), Error> and query functions return appropriate Result types
-  - Add proper error propagation using ? operator: self.env().transfer(recipient, amount).map_err(|_| Error::TransferFailed)?
-  - Implement Error enum with #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)] and #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-  - Use pattern matching for error handling: if condition { return Err(Error::SpecificError) }
-  - Test all error paths using assert!(matches!(result, Err(Error::SpecificError))) in unit tests
-  - Ensure error messages are descriptive and help frontend developers understand failure reasons
-  - _Requirements: 5.2, 5.3, 5.4, 8.2_
+  #[ink(event)]
+  pub struct PlayerJoined { player: AccountId }
 
-- [ ] 10. Implement event system with proper indexing (H160 Migration)
-  - **🔄 H160 EVENTS**: Define #[ink(event)] pub struct GameStarted { #[ink(topic)] buy_in_amount: Balance, #[ink(topic)] deadline: Timestamp }
-  - **🔄 H160 EVENTS**: Define #[ink(event)] pub struct PlayerDeposited { #[ink(topic)] player: **H160**, amount: Balance }
-  - Define #[ink(event)] pub struct GameBegan { player_count: u32, total_prize_pool: Balance }
-  - **🔄 H160 EVENTS**: Define #[ink(event)] pub struct GameEnded { #[ink(topic)] winners: Vec<**H160**>, admin_payout: Balance, winner_payout: Balance }
-  - **🔄 H160 INDEXING**: Use #[ink(topic)] for H160, Balance, and other non-primitive types (avoid primitive_topic linter error)
-  - Emit events using self.env().emit_event(EventName { ... }) pattern
-  - **🔄 H160 TESTING**: Test event emission using ink::env::test::recorded_events() in unit tests
-  - _Requirements: 5.1, 5.4, 8.3_
+  #[ink(event)]
+  pub struct GameEnded { winners: Vec<AccountId> }
+  ```
+  - _Target: Events for frontend integration_
 
-- [ ] 11. Add comprehensive unit test suite (H160 Testing)
-  - **🔄 H160 TESTING**: Write #[ink::test] functions for all constructor scenarios using ink::env::test module with H160 addresses
-  - Create helper functions: setup_inactive_contract(), setup_accepting_deposits_game(), setup_in_progress_game()
-  - **🔄 H160 FLOW**: Test complete game flow: start_game -> multiple deposits -> try_begin_game -> end_game with H160 addresses
-  - Add tests for all error conditions using assert!(matches!(result, Err(Error::SpecificError)))
-  - **🔄 H160 ACCESS**: Implement access control tests using ink::env::test::set_caller() with different H160 addresses
-  - **🔄 H160 EVENTS**: Test event emission using ink::env::test::recorded_events() and verify event data with H160 addresses
-  - Use ink::env::test::set_block_timestamp() and ink::env::test::set_value_transferred() for environment mocking
-  - _Requirements: 7.5, 8.5_
+- [ ] **Task 5: MVP Testing** (45 min)
+  - Unit tests for happy path: start → deposit → end
+  - Test admin access control
+  - Test basic error cases
+  - _Target: `cargo test` passes with confidence_
 
-- [ ] 12. Implement mock testing for external dependencies (H160 Compatible)
-  - Add #[cfg(test)] mock fields to AgarioBuyin storage struct for tracking external calls
-  - Create conditional compilation functions: #[cfg(not(test))] for production transfers, #[cfg(test)] for mock transfers
-  - Implement mock_transfer_calls: Vec<String> field to track transfer operations in tests
-  - **🔄 H160 MOCKING**: Write tests using mock implementations that verify transfer logic without actual fund movements using H160 addresses
-  - Use conditional compilation pattern: production code calls self.env().transfer(), test code pushes to mock_transfer_calls
-  - _Requirements: 6.3, 7.2_
+- [ ] **Task 6: Contract Deployment** (30 min)
+  - `cargo contract build --release`
+  - Deploy to local node or testnet
+  - Verify contract instantiation works
+  - _Target: Live contract for frontend_
 
-- [ ] 13. Add end-to-end test suite (H160 E2E Testing)
-  - Set up #[cfg(all(test, feature = "e2e-tests"))] mod e2e_tests with ink_e2e framework
-  - **🔄 INK! V6**: Install ink-node: download from ink! v6 releases for pallet-revive compatibility
-  - **🔄 H160 E2E**: Write #[ink_e2e::test] async fn full_game_lifecycle(mut client: ink_e2e::Client<C, E>) -> E2EResult<()>
-  - **🔄 H160 INSTANTIATION**: Test contract instantiation using client.instantiate("agario_buyin", &ink_e2e::alice(), constructor, 0, None) with H160 addresses
-  - **🔄 H160 SCENARIOS**: Create multi-player scenarios using ink_e2e::bob(), ink_e2e::charlie() for different H160 addresses
-  - Use build_message pattern for contract calls: build_message::<AgarioBuyinRef>(contract_acc_id).call(|contract| contract.method())
-  - Test with real blockchain environment using client.call().submit().await for state changes
-  - Run tests with: cargo test --features e2e-tests
-  - _Requirements: 8.5_
+**MVP TOTAL: ~4 hours** ⏱️
 
-- [ ] 14. Implement storage optimization and fallible operations (H160 Optimization)
-  - **🔄 H160 STORAGE**: Use ink::storage::Mapping<**H160**, ()> for O(1) player lookups instead of Vec for gas efficiency
-  - Implement fallible operations: if self.players.try_insert(&caller, &()).is_err() { handle_error } for dynamic data
-  - Use try_get() for safe retrieval: self.players.try_get(&player).unwrap_or(None) to prevent buffer overflow panics
-  - Ensure all storage operations stay within 16 KiB static buffer limits using fallible APIs from ink! v6+
-  - **🔄 H160 CLEANUP**: Add storage cleanup in reset_game_state(): use self.players.remove(&player) to allow storage deposit reclamation
-  - Use Blake2_128Concat hashing for mapping keys (default for ink::storage::Mapping) for transparent key access
-  - **Note**: H160 keys are more gas-efficient than AccountId due to smaller size (20 bytes vs 32 bytes)
-  - Avoid storing large dynamic data structures like Vec<String>; use counters and mappings with fixed-size values instead
-  - _Requirements: 6.2, 7.2, 7.6_
+---
 
-- [ ] 15. Add linting compliance and security validation (H160 Compliance)
-  - **🔄 INK! V6**: Run cargo contract build --lint to check all linter rules: no_main, primitive_topic, storage_never_freed, strict_balance_equality, non_fallible_api
-  - Verify no strict balance equality checks: avoid self.env().balance() == exact_amount patterns
-  - **🔄 H160 TOPICS**: Confirm proper use of #[ink(topic)] for H160, Balance types only (not u8, u32, bool primitives)
-  - Validate storage_never_freed rule: ensure players.remove() capability for storage deposit reclamation
-  - Test non_fallible_api compliance: use try_insert(), try_get() for dynamic data operations
-  - Ensure contract uses #![cfg_attr(not(feature = "std"), no_std, no_main)] for no_main rule
-  - _Requirements: 7.5, 7.7_
+## 🎮 **MVP Frontend Integration** (Target: 2-3 hours)
 
-- [ ] 16. Create deployment and integration documentation (H160 Documentation)
-  - **🔄 INK! V6**: Write deployment scripts: cargo contract build --release, cargo contract instantiate --suri //Alice --args 5 -x
-  - Create ABI documentation from generated .contract bundle containing metadata.json and .wasm files
-  - **🔄 H160 STORAGE**: Add storage inspection guides: cargo contract storage --contract <H160_ADDRESS> for debugging
-  - **🔄 H160 INTEGRATION**: Document polkadot-js/api integration: ContractPromise(api, abi, address) for frontend interaction with H160 addresses
-  - **🔄 H160 EXAMPLES**: Create examples for contract.query.getGameState() and contract.tx.deposit() patterns with H160 addresses
-  - **🔄 H160 EVENTS**: Document event filtering using api.query.system.events() and contract event decoding with H160 data
-  - **🔄 MIGRATION GUIDE**: Add AccountId → H160 migration guide for existing contracts and frontends
-  - _Requirements: 8.1, 8.4_
+- [ ] **Task 7: Basic Wallet Connection** (45 min)
+  - Connect Polkadot.js extension
+  - Display connected account
+  - Basic error handling
 
-- [ ] 17. Perform final integration testing and validation (H160 Validation)
-  - **🔄 H160 TESTING**: Run complete test suite: cargo contract test for unit tests, cargo test --features e2e-tests for E2E tests
-  - **🔄 INK! V6**: Validate contract with cargo contract build --lint to ensure all linter rules pass
-  - **🔄 INK! V6**: Test deployment on local development node: ink-node in background, then cargo contract instantiate
-  - **🔄 H160 INSPECTION**: Verify storage inspection: cargo contract storage --contract <H160_ADDRESS> shows correct contract state
-  - **🔄 H160 CALLS**: Test contract calls: cargo contract call --contract <H160_ADDRESS> --message get_game_state --suri //Alice
-  - **🔄 H160 EVENTS**: Confirm event emission using polkadot-js/api event filtering and decoding with H160 addresses
-  - Validate all requirements against implemented functionality using comprehensive test scenarios
-  - **🔄 REVIVE TESTING**: Test pallet-revive compatibility and Ethereum tooling integration if needed
-  - _Requirements: All requirements validation_
+- [ ] **Task 8: Admin Panel** (60 min)
+  - Start game button (admin only)
+  - Set buy-in amount
+  - End game with winner selection
+  - Show current game state
 
-## 🔄 **H160 Migration Summary**
+- [ ] **Task 9: Player Interface** (45 min)
+  - Deposit button when game active
+  - Show current players count
+  - Registration status display
 
-### **Key Changes for ink! v6.0.0-alpha:**
-1. **Address Type**: `AccountId` → `H160` (32-byte → 20-byte Ethereum-style addresses)
-2. **Storage**: `Mapping<AccountId, ()>` → `Mapping<H160, ()>`
-3. **Events**: All player/admin address fields now use `H160`
-4. **Functions**: All address parameters and returns now use `H160`
-5. **Testing**: All test addresses now use H160 format (0x1234...abcd)
+- [ ] **Task 10: Event Monitoring** (30 min)
+  - Listen for contract events
+  - Update UI on state changes
+  - Basic notifications
 
-### **Benefits of H160:**
-- **Gas Efficiency**: 20-byte addresses vs 32-byte AccountId
-- **Ethereum Compatibility**: Works with Ethereum tooling and wallets
-- **Cross-Chain**: Better integration with Ethereum ecosystem
-- **Performance**: Smaller address size improves storage efficiency
+**Frontend TOTAL: ~3 hours** ⏱️
 
-### **Migration Checklist:**
-- [ ] Update all `AccountId` references to `H160`
-- [ ] Update storage mappings and event definitions
-- [ ] Update test addresses to H160 format
-- [ ] Update frontend integration for H160 addresses
-- [ ] Update documentation and examples
-- [ ] Test with ink-node (pallet-revive compatible)
+---
+
+## 📋 **NICE TO HAVE - Post-Hackathon Roadmap**
+
+### **Phase 2: Enhanced Features** (Post-Hackathon Week 1)
+- [ ] **H160 Migration** - Upgrade to ink! v6 Ethereum-style addresses
+- [ ] **Advanced Error Handling** - Comprehensive error messages
+- [ ] **Security Patterns** - Checks-effects-interactions, reentrancy protection
+- [ ] **Registration Deadlines** - Time-based game progression
+- [ ] **Admin Fee System** - Percentage-based prize distribution
+
+### **Phase 3: Production Ready** (Post-Hackathon Week 2-3)
+- [ ] **Comprehensive Testing** - E2E tests, edge cases, security tests
+- [ ] **Multiple Wallet Support** - MetaMask, mobile wallets
+- [ ] **Advanced UI/UX** - Mobile responsive, animations, better design
+- [ ] **Event System** - Real-time updates, offline handling
+- [ ] **Gas Optimization** - Storage efficiency, batch operations
+
+### **Phase 4: Advanced Features** (Post-Hackathon Month 2)
+- [ ] **Multi-Game Support** - Multiple concurrent games
+- [ ] **Tournament Mode** - Bracket-style competitions
+- [ ] **Analytics Dashboard** - Game statistics, player metrics
+- [ ] **Cross-Chain Integration** - Bridge to other networks
+- [ ] **DAO Governance** - Community-driven admin selection
+
+---
+
+## 🛠 **Development Commands for MVP**
+
+### **Contract Development**
+```bash
+# Core development loop
+cargo contract test                    # Fast unit testing
+cargo contract build --release        # Build for deployment
+cargo contract instantiate --suri //Alice --args 5  # Deploy to testnet
+
+# Quick validation
+cargo check                           # Fast syntax check
+cargo fmt                            # Auto-format code
+```
+
+### **Local Testing Setup**
+```bash
+# Terminal 1: Start local node
+substrate-contracts-node --dev
+
+# Terminal 2: Deploy and test
+cd agario_buyin
+cargo contract build --release
+cargo contract instantiate --suri //Alice --args 5 -x
+cargo contract call --suri //Bob --contract <CONTRACT_ADDR> --message deposit --value 1000000000000 -x
+```
+
+---
+
+## 🎯 **Success Criteria for MVP Demo**
+
+### **Must Demonstrate:**
+1. ✅ **Admin Flow**: Connect wallet → Start game → Set buy-in
+2. ✅ **Player Flow**: Connect different wallet → Deposit → Join game
+3. ✅ **Game End**: Admin selects winners → Prize distribution
+4. ✅ **State Updates**: UI reflects contract state changes in real-time
+
+### **Demo Script (2 minutes):**
+1. **Admin starts game** - "I'm the admin, starting a new game with 1 DOT buy-in"
+2. **Players join** - "Players connect wallets and deposit to join"
+3. **Game progress** - "We can see X players registered, prize pool growing"
+4. **Game ends** - "Admin declares winners, prizes distributed automatically"
+5. **State reset** - "Contract ready for next game"
+
+---
+
+## 🔧 **Simplified Architecture Decisions for MVP**
+
+### **What We're Keeping Simple:**
+- **AccountId instead of H160** - Avoid migration complexity for demo
+- **Basic Error Handling** - Simple enum, user-friendly messages later
+- **Single Game Mode** - One game at a time, no multiple instances
+- **Manual Winner Selection** - Admin picks winners, automated scoring later
+- **Polkadot.js Only** - Skip multi-wallet complexity for MVP
+
+### **What We'll Improve Post-Hackathon:**
+- **H160 Migration** - Ethereum-style addresses for better UX
+- **Automated Game Flow** - Time-based transitions, registration deadlines
+- **Advanced Security** - Reentrancy protection, formal verification
+- **Cross-Chain Support** - Bridge to Ethereum, other networks
+- **Mobile App** - Native iOS/Android with better UX
+
+---
+
+## 🚨 **MVP Risk Mitigation**
+
+### **Time Management:**
+- ⏰ **4-hour contract target** - If behind, cut testing/optimization
+- ⏰ **3-hour frontend target** - If behind, skip animations and focus on core demo
+- ⏰ **1-hour buffer** - Final integration testing and bug fixes
+
+### **Technical Risks:**
+- 🐛 **Deployment Issues** - Have local node ready as backup
+- 🐛 **Frontend Integration** - Test contract calls early, not at the end
+- 🐛 **Wallet Connection** - Have multiple test accounts ready
+- 🐛 **Event Monitoring** - Polling fallback if subscription fails
+
+### **Demo Backup Plan:**
+- 📱 **Screenshots/Video** - Record successful demo in case of live issues
+- 🧪 **Local Demo** - Run everything locally if network issues
+- 📋 **Manual Simulation** - Talk through the flow with UI mockups if needed
+
+---
+
+## 🏆 **Success Metrics**
+
+### **Technical Success:**
+- ✅ Contract deploys and instantiates successfully
+- ✅ All core functions work (start, deposit, end)
+- ✅ Frontend connects and calls contract methods
+- ✅ Events are emitted and received by frontend
+
+### **Demo Success:**
+- ✅ Complete user flow demonstrated in <2 minutes
+- ✅ Multiple wallets interact with same contract
+- ✅ Prize distribution happens automatically
+- ✅ Audience understands the concept and implementation
+
+### **Judges' Criteria Alignment:**
+- ✅ **Innovation**: Novel application of smart contracts to gaming
+- ✅ **Technical Execution**: Working ink! contract with frontend
+- ✅ **User Experience**: Clear demo showing end-to-end flow
+- ✅ **Business Potential**: Clear path to production deployment
+
+---
+
+*🎯 Remember: The goal is a working demo, not a production-ready system. Focus on core functionality that showcases the concept clearly.*
