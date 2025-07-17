@@ -1,29 +1,44 @@
-name: Azure Deployment (Alternative) - Synergy42
+name: 🔧 Azure Debug Deployment - Emergency Use Only
 
-# This is an alternative deployment workflow for troubleshooting
-# Use this if the main workflow continues to have issues
+# 🚨 EMERGENCY DEBUGGING WORKFLOW
+# Use this ONLY when main deployment pipeline fails
+# This workflow bypasses complex packaging for rapid debugging
+# Manual trigger only - NOT for production use
 
 on:
   workflow_dispatch:
     inputs:
-      deployment_mode:
-        description: 'Deployment mode'
+      deployment_reason:
+        description: 'Why are you using the debug deployment? (main pipeline should be preferred)'
         required: true
-        default: 'full'
         type: choice
         options:
-        - full
-        - minimal
+        - 'Main pipeline failing - emergency deployment needed'
+        - 'Testing minimal deployment approach'
+        - 'Debugging deployment package issues'
+        - 'Investigating Azure deployment problems'
+      skip_tests:
+        description: 'Skip tests for faster deployment?'
+        required: false
+        type: boolean
+        default: false
 
 env:
   NODE_VERSION: '18.x'
   AZURE_WEBAPP_NAME: synergy42
 
 jobs:
-  build-and-deploy:
+  emergency-deploy:
     runs-on: ubuntu-latest
 
     steps:
+      - name: ⚠️ Emergency Deployment Warning
+        run: |
+          echo "🚨 WARNING: Using emergency debugging deployment"
+          echo "📋 Reason: ${{ github.event.inputs.deployment_reason }}"
+          echo "🔄 This should be temporary - fix main pipeline ASAP"
+          echo "📊 Main pipeline location: .github/workflows/main_synergy42.yml"
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -33,55 +48,64 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install dependencies (fast)
         run: |
-          npm ci
+          npm ci --production=false --ignore-scripts
 
-      - name: Build application
+      - name: Build application (minimal)
         run: |
           npm run build
 
-      - name: Create simple deployment package
+      - name: Run tests (optional)
+        if: ${{ github.event.inputs.skip_tests != 'true' }}
         run: |
-          # Create a simple package with only essential files
-          mkdir simple-deploy
+          npm run test:prod || echo "Tests failed but continuing with deployment"
+        continue-on-error: true
 
-          # Copy core application files
-          cp package.json simple-deploy/
-          cp package-lock.json simple-deploy/
-          cp web.config simple-deploy/
+      - name: Create minimal deployment package
+        run: |
+          echo "🔧 Creating minimal deployment package for debugging..."
+          mkdir debug-deploy
 
-          # CRITICAL FIX: Include build dependencies
-          cp gulpfile.js simple-deploy/ || echo "No gulpfile.js"
-          cp webpack.config.js simple-deploy/ || echo "No webpack.config.js"
+          # Essential files only
+          cp package.json debug-deploy/
+          cp package-lock.json debug-deploy/
+          cp web.config debug-deploy/
+          cp gulpfile.js debug-deploy/
+          cp webpack.config.js debug-deploy/
 
-          # Copy built application
-          cp -r bin/ simple-deploy/bin/
-          cp -r src/ simple-deploy/src/
-          cp -r client/ simple-deploy/client/
+          # Built application
+          cp -r bin/ debug-deploy/bin/
+          cp -r src/ debug-deploy/src/
+          cp -r client/ debug-deploy/client/
+          [ -d "config" ] && cp -r config/ debug-deploy/config/
 
-          # Copy config if exists
-          [ -d "config" ] && cp -r config/ simple-deploy/config/
+          # Install minimal production dependencies
+          cd debug-deploy
+          npm ci --production --ignore-scripts --silent
 
-          # Install production dependencies in the package
-          cd simple-deploy
-          npm ci --production --ignore-scripts
+          # Debug info
+          echo "📦 Debug package contents:"
+          ls -la
+          echo "📊 Package size: $(du -sh . | cut -f1)"
 
-          # List contents for debugging
-          echo "=== Package contents ==="
-          find . -type f | head -20
-          echo "========================"
-
-      - name: Deploy to Azure Web App
+      - name: 🚀 Emergency Deploy to Azure
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_SYNERGY42 }}
-          package: simple-deploy
+          package: debug-deploy
 
-      - name: Test deployment
+      - name: 🧪 Post-deployment verification
         run: |
-          echo "Waiting for deployment to complete..."
-          sleep 60
-          echo "Testing deployment..."
-          curl -I "https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/" || echo "Initial request failed - app may still be starting"
+          echo "⏳ Waiting for app to start..."
+          sleep 45
+          echo "🔍 Testing deployment..."
+          curl -I "https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/" || echo "❌ Initial request failed"
+
+      - name: 📋 Deployment Summary
+        run: |
+          echo "✅ Emergency deployment completed"
+          echo "🔗 App URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/"
+          echo "⚠️  Remember: Fix main pipeline and stop using this emergency workflow"
+          echo "📝 Main pipeline: .github/workflows/main_synergy42.yml"
