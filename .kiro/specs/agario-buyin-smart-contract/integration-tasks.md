@@ -16,13 +16,14 @@
 - [ ] Create wallet interface with account switching
 - [ ] **MVP Success**: Modern SDK connected with local test accounts
 
-### **Task 2: Modern Contract Interface Setup** (45 minutes)
+### **Task 2: Modern Contract Interface Setup with H160 Addresses** (45 minutes)
 - [ ] Generate contract descriptors from metadata: `papi ink add ./agario_buyin.json`
-- [ ] Create `src/client/js/contract-service.js` using modern `createInkSdk()`
-- [ ] Initialize contract instance with deployed address using `getContract()`
-- [ ] Add typed query functions: `getGameState()`, `getPlayerCount()`
-- [ ] Test contract connection with dry-run queries
-- [ ] **MVP Success**: Frontend can read contract state with full type safety
+- [ ] Create `src/client/js/contract-service.js` using modern `createReviveSdk()` for H160 support
+- [ ] Initialize contract instance with deployed H160 address using `getContract()`
+- [ ] Handle account mapping requirements for H160 addresses with `addressIsMapped()`
+- [ ] Add typed query functions: `getGameState()`, `getPlayerCount()` with H160 types
+- [ ] Test contract connection with dry-run queries using H160 addresses
+- [ ] **MVP Success**: Frontend can read contract state with full H160 type safety
 
 ### **Task 3: Enhanced Admin Interface with Modern Transactions** (90 minutes)
 - [ ] Add admin check using typed account comparison
@@ -35,7 +36,7 @@
 - [ ] **Game Control Actions**:
   - [ ] "Start Game" button using `.send()` with AliceSigner
   - [ ] "Force End Game" button with proper error handling
-  - [ ] "Submit Winners" interface with typed Vec<AccountId> and Vec<u8>
+  - [ ] "Submit Winners" interface with typed Vec<H160> and Vec<u8>
 - [ ] **Game Status Dashboard**:
   - [ ] Current GameState enum display with type safety
   - [ ] Registration countdown timer using contract Timestamp queries
@@ -63,12 +64,12 @@
 ### **Task 5: Game Server Integration with Event Monitoring** (75 minutes)
 - [ ] **Agario Game Server Hooks**:
   - [ ] Modify `src/server/server.js` to use contract event subscription
-  - [ ] Add player mapping: game player ID ↔ typed AccountId
+  - [ ] Add player mapping: game player ID ↔ typed H160 address
   - [ ] Implement game end detection using GameState monitoring
   - [ ] Add winner determination logic with typed results
 - [ ] **Winner Reporting Interface**:
   - [ ] Create admin interface using typed `submitWinners()` calls
-  - [ ] Support multiple winners with Vec<AccountId> and Vec<u8> types
+  - [ ] Support multiple winners with Vec<H160> and Vec<u8> types
   - [ ] Auto-populate winners from game server with type validation
   - [ ] Manual override capability using AliceSigner
 - [ ] **Game State Synchronization**:
@@ -96,15 +97,15 @@
 
 ## 🎮 **Modern SDK Integration Points**
 
-### **PAPI Service Setup** (`src/client/js/papi-service.js`)
+### **PAPI Service Setup with H160 Support** (`src/client/js/papi-service.js`)
 ```javascript
 import { createClient } from "polkadot-api"
 import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat"
 import { getWsProvider } from "polkadot-api/ws-provider/web"
-import { createInkSdk } from "@polkadot-api/sdk-ink"
+import { createReviveSdk } from "@polkadot-api/sdk-ink"  // Use ReviveSdk for H160
 import { localNode, contracts } from "@polkadot-api/descriptors"
 
-// Modern PAPI client setup
+// Modern PAPI client setup with H160 address support
 class PAPIService {
   constructor() {
     this.client = null;
@@ -120,10 +121,11 @@ class PAPIService {
       );
 
       this.typedApi = this.client.getTypedApi(localNode);
-      this.contractSdk = createInkSdk(this.typedApi, contracts.agario_buyin);
+      // Use createReviveSdk for H160 address support (ink! v6+)
+      this.contractSdk = createReviveSdk(this.typedApi, contracts.agario_buyin);
 
       this.isConnected = true;
-      console.log("PAPI connected successfully");
+      console.log("PAPI connected successfully with H160 support");
     } catch (error) {
       console.error("Failed to connect PAPI:", error);
       throw error;
@@ -143,16 +145,42 @@ class PAPIService {
     }
     return this.typedApi;
   }
+
+  // Check if an account is mapped for H160 usage
+  async isAccountMapped(accountAddress) {
+    if (!this.contractSdk) {
+      throw new Error("PAPI not connected.");
+    }
+    return await this.contractSdk.addressIsMapped(accountAddress);
+  }
+
+  // Map account for H160 usage (required before contract interaction)
+  async mapAccount(signer) {
+    if (!this.typedApi) {
+      throw new Error("PAPI not connected.");
+    }
+
+    const txResult = await this.typedApi.tx.Revive.map_account()
+      .signAndSubmit(signer);
+
+    if (txResult.ok) {
+      console.log(`Account ${signer.address} mapped for H160 usage`);
+      return true;
+    } else {
+      throw new Error(`Failed to map account: ${txResult.dispatchError}`);
+    }
+  }
 }
 
 export default PAPIService;
 ```
 
-### **Local Signers Setup** (`src/client/js/signers.js`)
+### **Local Signers Setup for H160 Addresses** (`src/client/js/signers.js`)
 ```javascript
 import { Sr25519Account } from "@polkadot-api/substrate-bindings"
+import { getDeploymentAddressWithNonce } from "@polkadot-api/sdk-ink"
 
-// Create local test signers for demo
+// Create local test signers for demo with H160 support
 export const createLocalSigners = () => {
   const AliceSigner = Sr25519Account.fromUri("//Alice");
   const BobSigner = Sr25519Account.fromUri("//Bob");
@@ -166,6 +194,7 @@ export const createLocalSigners = () => {
     CharlieSigner,
     DaveSigner,
     EveSigner,
+
     // Helper to get signer by name
     getSigner: (name) => {
       const signers = {
@@ -177,14 +206,40 @@ export const createLocalSigners = () => {
       };
       return signers[name];
     },
-    // Get all available accounts
+
+    // Get all available accounts with H160 information
     getAllAccounts: () => [
-      { name: "Alice", signer: AliceSigner, address: AliceSigner.address },
-      { name: "Bob", signer: BobSigner, address: BobSigner.address },
-      { name: "Charlie", signer: CharlieSigner, address: CharlieSigner.address },
-      { name: "Dave", signer: DaveSigner, address: DaveSigner.address },
-      { name: "Eve", signer: EveSigner, address: EveSigner.address }
-    ]
+      { name: "Alice", signer: AliceSigner, address: AliceSigner.address, role: "Admin" },
+      { name: "Bob", signer: BobSigner, address: BobSigner.address, role: "Player" },
+      { name: "Charlie", signer: CharlieSigner, address: CharlieSigner.address, role: "Player" },
+      { name: "Dave", signer: DaveSigner, address: DaveSigner.address, role: "Player" },
+      { name: "Eve", signer: EveSigner, address: EveSigner.address, role: "Player" }
+    ],
+
+    // Auto-map accounts for H160 usage
+    async ensureAccountsMapped(papiService) {
+      const accounts = this.getAllAccounts();
+      const mappingPromises = accounts.map(async (account) => {
+        try {
+          const isMapped = await papiService.isAccountMapped(account.address);
+          if (!isMapped) {
+            console.log(`Mapping account ${account.name} for H160 usage...`);
+            await papiService.mapAccount(account.signer);
+            console.log(`✅ Account ${account.name} mapped successfully`);
+          } else {
+            console.log(`✅ Account ${account.name} already mapped`);
+          }
+          return { name: account.name, mapped: true };
+        } catch (error) {
+          console.error(`❌ Failed to map account ${account.name}:`, error);
+          return { name: account.name, mapped: false, error };
+        }
+      });
+
+      const results = await Promise.all(mappingPromises);
+      console.log("Account mapping results:", results);
+      return results;
+    }
   };
 };
 ```
@@ -270,10 +325,10 @@ class ModernContractService {
     }
   }
 
-  async isPlayerRegistered(accountId) {
+    async isPlayerRegistered(h160Address) {
     const result = await this.contract.query("is_player_registered", {
       origin: this.contractAddress,
-      data: { player: accountId },
+      data: { player: h160Address },
     });
 
     if (result.success) {
@@ -338,12 +393,13 @@ class ModernContractService {
     }
   }
 
-  async submitWinners(signer, winners, percentages) {
+    async submitWinners(signer, winners, percentages) {
+    // winners: Vec<H160>, percentages: Vec<u8>
     const txResult = await this.contract
       .send("submit_winners", {
         origin: signer.address,
         data: {
-          winners: winners,
+          winners: winners,  // Array of H160 addresses
           percentages: percentages,
         },
       })
@@ -652,8 +708,8 @@ export default ModernEventMonitor;
     <div id="winner-list">
       <div class="winner-entry">
         <select class="winner-address">
-          <option value="">Select winner...</option>
-          <!-- Populated dynamically with registered players -->
+          <option value="">Select winner H160 address...</option>
+          <!-- Populated dynamically with registered players (H160 addresses) -->
         </select>
         <input type="number" placeholder="Prize %" min="1" max="100" class="winner-percentage">
         <button class="remove-winner">×</button>
@@ -841,20 +897,21 @@ console.log("Modern PAPI connected:", await typedApi.query.System.Number.getValu
 
 3. **[60s] Live Game with Event Monitoring**:
    - "Event subscription shows real-time contract events"
-   - "Game server integration with typed AccountId mapping"
+   - "Game server integration with typed H160 address mapping"
    - "Automatic state transitions monitored via GameState enum"
-   - "Winner detection with full type validation"
+   - "Winner detection with full type validation using H160 addresses"
 
 4. **[30s] Type-Safe Winner Distribution**:
-   - "Admin submits winners using Vec<AccountId> and Vec<u8> types"
-   - "Transaction events show successful Balance transfers"
+   - "Admin submits winners using Vec<H160> and Vec<u8> types"
+   - "Transaction events show successful Balance transfers to H160 addresses"
    - "Full type safety prevents common integration errors"
-   - "Event-driven UI updates show final results"
+   - "Event-driven UI updates show final results with Ethereum-compatible addresses"
 
 ### **Key Technical Highlights:**
-- ✅ **Modern SDK**: Latest @polkadot-api/sdk-ink with full type safety
+- ✅ **Modern SDK**: Latest @polkadot-api/sdk-ink with createReviveSdk for H160 support
 - ✅ **Local Signers**: No browser extension needed, immediate demo
-- ✅ **Type Safety**: Proper Balance, Timestamp, AccountId handling
+- ✅ **H160 Addresses**: Ethereum-compatible addressing with automatic account mapping
+- ✅ **Type Safety**: Proper Balance, Timestamp, H160 handling
 - ✅ **Event System**: Real-time contract event monitoring
 - ✅ **Dry Runs**: Transaction validation before sending
 
@@ -891,8 +948,8 @@ cd src/client && python -m http.server 8080
 ## 🏆 **Enhanced Success Criteria**
 
 ### **Must Demonstrate with Modern SDK:**
-- ✅ **Type Safety**: All contract interactions properly typed
-- ✅ **Local Signers**: No browser extension dependency
+- ✅ **H160 Type Safety**: All contract interactions properly typed with H160 addresses
+- ✅ **Local Signers**: No browser extension dependency with automatic account mapping
 - ✅ **Event Monitoring**: Real-time contract event subscription
 - ✅ **Error Handling**: Proper transaction error management
 - ✅ **Performance**: Fast queries and efficient updates
@@ -937,13 +994,15 @@ src/client/
 - **Better DevEx** - TypeScript completion and error detection
 - **Faster Queries** - Optimized RPC calls and caching
 - **Reliable Events** - Modern subscription patterns with reconnection
+- **H160 Compatibility** - Ethereum-compatible addresses with automatic mapping
 
 ### **Production Benefits:**
 - **Type Safety** - Prevents common integration errors at compile time
+- **H160 Compatibility** - Ethereum-compatible addresses enable cross-chain interoperability
 - **Performance** - Optimized for modern dApps with efficient state management
 - **Maintainability** - Clear separation of concerns and modern patterns
 - **Scalability** - Better handling of multiple contracts and complex state
-- **Future-Proof** - Built on latest Polkadot standards and best practices
+- **Future-Proof** - Built on latest Polkadot standards with Ethereum compatibility
 
 ---
 
