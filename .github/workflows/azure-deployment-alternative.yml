@@ -51,6 +51,10 @@ jobs:
           cp package-lock.json simple-deploy/
           cp web.config simple-deploy/
 
+          # CRITICAL FIX: Include build dependencies
+          cp gulpfile.js simple-deploy/ || echo "No gulpfile.js"
+          cp webpack.config.js simple-deploy/ || echo "No webpack.config.js"
+
           # Copy built application
           cp -r bin/ simple-deploy/bin/
           cp -r src/ simple-deploy/src/
