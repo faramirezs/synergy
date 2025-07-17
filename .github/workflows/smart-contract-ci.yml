@@ -1,12 +1,6 @@
 name: 🚀 Smart Contract - Hackathon Build
 
 on:
-  push:
-    branches: [main, master, develop]
-    paths: ['agario_buyin/**']
-  pull_request:
-    branches: [main, master, develop]
-    paths: ['agario_buyin/**']
   workflow_dispatch:
 
 jobs:
