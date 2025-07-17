@@ -6,6 +6,39 @@
 
 ---
 
+## 🚨 **IMPORTANT: USE CLOUD BUILDS ONLY - NO LOCAL BUILDS**
+
+> **⚠️ CRITICAL FOR HACKATHON**: To save time and disk space, **DO NOT** build locally. Use GitHub Actions cloud builds instead.
+
+### **🌐 Cloud Build Commands:**
+```bash
+# Quick contract build (2-3 minutes)
+./trigger-build.sh contract quick
+
+# Full contract build with tests (4-5 minutes)
+./trigger-build.sh contract full
+
+# Full stack deployment (6-8 minutes)
+./trigger-build.sh fullstack development
+```
+
+### **🎯 Why Cloud Builds:**
+- **💾 Save 3GB+ disk space** (no Rust toolchain, cargo-contract, dependencies)
+- **⚡ Faster builds** (2-4 min vs 5-10 min locally)
+- **🤝 Team collaboration** (multiple developers can build simultaneously)
+- **🚀 Automatic deployment** (contract + frontend deployed together)
+- **📦 Artifacts stored** (30 days retention, downloadable)
+
+### **📋 Manual Trigger (Alternative):**
+1. Go to GitHub Actions tab
+2. Select "Smart Contract - Hackathon Cloud Build" or "Hackathon Full Stack Deploy"
+3. Click "Run workflow"
+4. Choose options and deploy
+
+**📖 Full Guide**: See `.kiro/specs/HACKATHON-CLOUD-DEVELOPMENT.md`
+
+---
+
 ## 🔥 **MUST HAVE - Core MVP Tasks** (Target: 4-6 hours)
 
 ### **✅ COMPLETED**
@@ -40,45 +73,19 @@
   - ✅ H160 address support throughout all functions
   - ✅ Contract ready for Task 4: Game Timing & Validation
 
+- [x] **Task 4: Game Timing & Validation** ✅ DONE (45 min)
+  - ✅ `check_game_conditions()` - Automated game progression and timing validation
+  - ✅ Automatic state transitions: AcceptingDeposits → InProgress when registration deadline passes
+  - ✅ Game duration expiry: InProgress → WaitingForResults when time limit reached
+  - ✅ Auto-refund mechanism for failed games with insufficient players
+  - ✅ Time-based validation using block timestamps with proper error handling
+  - ✅ Integration with existing `refund_all_players()` function
+  - ✅ Comprehensive unit tests: 4 new test functions covering all transition scenarios
+  - ✅ All 15 unit tests passing successfully
+  - ✅ Code compiles successfully (`cargo check --lib` passes)
+  - ✅ Contract ready for Task 5: Winner Detection & Prize Distribution
+
 ### **🔥 MVP CRITICAL PATH**
-
-- [ ] **Task 4: Game Timing & Validation** (45 min)
-  ```rust
-  #[ink(message)]
-  pub fn check_game_conditions(&mut self) -> Result<(), Error> {
-      let now = self.env().block_timestamp();
-
-      match self.game_state {
-          GameState::AcceptingDeposits => {
-              // Check if registration deadline passed
-              if now >= self.registration_deadline {
-                  if self.player_count >= self.min_players {
-                      self.game_state = GameState::InProgress;
-                      self.game_start_time = now;
-                      self.env().emit_event(GameBegan { player_count: self.player_count });
-                  } else {
-                      // Refund all players and reset
-                      self.refund_all_players()?;
-                  }
-              }
-          },
-          GameState::InProgress => {
-              // Check if game duration exceeded
-              if let Some(duration) = self.game_duration {
-                  if now >= self.game_start_time + duration {
-                      self.game_state = GameState::WaitingForResults;
-                      self.env().emit_event(GameTimeExpired {});
-                  }
-              }
-          },
-          _ => {}
-      }
-      Ok(())
-  }
-  ```
-  - Auto-refund mechanism for failed games
-  - Time-based state transitions
-  - _Target: Automated game progression_
 
 - [ ] **Task 5: Winner Detection & Prize Distribution** (60 min)
   ```rust
@@ -160,12 +167,14 @@
   - Test admin access control
   - Test basic error cases
   - _Target: `cargo test` passes with confidence_
+  - **🌐 Use cloud build**: `./trigger-build.sh contract full` (includes testing)
 
 - [ ] **Task 8: Contract Deployment** (30 min)
-  - `cargo contract build --release`
+  - **🌐 Use cloud build**: `./trigger-build.sh contract deploy` (builds release version)
   - Deploy to local node or testnet
   - Verify contract instantiation works
   - _Target: Live contract for frontend_
+  - **🌐 Full stack deploy**: `./trigger-build.sh fullstack development` (includes deployment)
 
 **MVP TOTAL: ~6 hours** ⏱️ (Enhanced with timing & winner logic)
 
@@ -232,13 +241,28 @@ cargo contract test                    # Fast unit testing
 cargo contract build --release        # Build for deployment
 cargo contract instantiate --suri //Alice --args 5  # Deploy to testnet
 
+### **⚠️ HACKATHON DEVELOPMENT SETUP - USE CLOUD BUILDS**
+```bash
+# 🚨 RECOMMENDED: Use cloud builds to save time and space
+./trigger-build.sh contract quick     # Fast development builds
+./trigger-build.sh contract full      # Full builds with tests
+./trigger-build.sh fullstack development # Complete deployment
+
+# 🌐 Manual trigger alternative:
+# Go to GitHub Actions → "Smart Contract - Hackathon Cloud Build"
+```
+
+### **🛠️ Local Development (Only if Cloud Fails)**
+```bash
+# ⚠️ ONLY USE IF CLOUD BUILDS FAIL - Requires 3GB+ disk space
 # Quick validation
 cargo check                           # Fast syntax check
 cargo fmt                            # Auto-format code
 ```
 
-### **Local Testing Setup**
+### **🧪 Local Testing Setup (Emergency Only)**
 ```bash
+# ⚠️ EMERGENCY LOCAL SETUP - Use cloud builds instead
 # Terminal 1: Start local node
 substrate-contracts-node --dev
 
