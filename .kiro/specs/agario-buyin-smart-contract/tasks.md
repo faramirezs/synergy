@@ -12,55 +12,28 @@
 - [x] **Task 1: Project Setup & Foundation** ✅ DONE
   - ✅ Contract builds successfully with `cargo contract build`
   - ✅ Unit tests pass (2/2 passing)
-  - ✅ Basic structure in place with AccountId (keeping simple for MVP)
+  - ✅ Basic structure in place with H160 addresses (Ethereum-compatible for cross-chain support)
   - ✅ All dependencies configured correctly
 
+- [x] **Task 2: Core Storage & Types** ✅ DONE (60 min)
+  - ✅ Enhanced AgarioBuyin struct with timing and configuration fields
+  - ✅ Added WaitingForResults to GameState enum
+  - ✅ Created GameEndReason enum for different end conditions
+  - ✅ Expanded Error enum with timing validation errors
+  - ✅ Implemented comprehensive query functions for all new fields
+  - ✅ Added time calculation functions (registration_time_remaining, game_time_remaining)
+  - ✅ Fixed Mapping API compatibility issue (contains() → get().is_some())
+  - ✅ All 5 unit tests passing successfully
+  - ✅ Contract ready for Task 3: Enhanced Game Management
+
 ### **🔥 MVP CRITICAL PATH**
-
-- [ ] **Task 2: Core Storage & Types** (45 min)
-  ```rust
-  #[ink(storage)]
-  pub struct AgarioBuyin {
-      admin: AccountId,
-      game_state: GameState,
-      buy_in_amount: Balance,
-      // Registration & Timing
-      registration_deadline: Timestamp,
-      min_players: u32,
-      max_players: Option<u32>,
-      // Game Duration & End Conditions
-      game_duration: Option<Timestamp>, // None = no time limit
-      game_start_time: Timestamp,
-      // Players & Prize Pool
-      players: Mapping<AccountId, ()>,
-      player_count: u32,
-      prize_pool: Balance,
-      // Admin Configuration
-      admin_fee_percentage: u8, // 0-100
-  }
-
-  enum GameState {
-      Inactive,
-      AcceptingDeposits,
-      InProgress,
-      WaitingForResults, // NEW: Game ended, waiting for winner submission
-  }
-
-  enum GameEndReason {
-      TimeLimit,
-      LastPlayerStanding,
-      AdminForced,
-  }
-  ```
-  - Enhanced Error enum: `NotAdmin | WrongState | WrongAmount | GameNotStarted | RegistrationClosed | GameFull | TooFewPlayers`
-  - _Target: Complete storage with timing logic_
 
 - [ ] **Task 3: Enhanced Game Management** (120 min)
   - `start_game(buy_in: Balance, registration_minutes: u32, min_players: u32, game_duration_minutes: Option<u32>)` - Admin configures and starts game
   - `deposit()` - Payable function with registration deadline and player limit checks
   - `try_begin_game()` - Auto-transition from AcceptingDeposits to InProgress when conditions met
   - `report_game_end(reason: GameEndReason)` - Game server reports game completion
-  - `submit_winners(winners: Vec<AccountId>, winner_percentages: Vec<u8>)` - Admin submits winners with prize distribution
+  - `submit_winners(winners: Vec<H160>, winner_percentages: Vec<u8>)` - Admin submits winners with prize distribution
   - `get_game_state()`, `get_player_count()`, `get_time_remaining()` - Enhanced queries
   - _Target: Complete game lifecycle with timing_
 
@@ -105,7 +78,7 @@
 - [ ] **Task 5: Winner Detection & Prize Distribution** (60 min)
   ```rust
   #[ink(message)]
-  pub fn submit_winners(&mut self, winners: Vec<AccountId>, percentages: Vec<u8>) -> Result<(), Error> {
+  pub fn submit_winners(&mut self, winners: Vec<H160>, percentages: Vec<u8>) -> Result<(), Error> {
       // Validate admin and state
       if self.env().caller() != self.admin { return Err(Error::NotAdmin); }
       if self.game_state != GameState::WaitingForResults { return Err(Error::WrongState); }
@@ -146,7 +119,7 @@
 
   #[ink(event)]
   pub struct PlayerJoined {
-      player: AccountId,
+      player: H160,
       player_count: u32,
       prize_pool: Balance
   }
@@ -162,7 +135,7 @@
 
   #[ink(event)]
   pub struct GameEnded {
-      winners: Vec<AccountId>,
+      winners: Vec<H160>,
       percentages: Vec<u8>,
       total_distributed: Balance,
       reason: GameEndReason
@@ -293,18 +266,18 @@ cargo contract call --suri //Bob --contract <CONTRACT_ADDR> --message deposit --
 ## 🔧 **Simplified Architecture Decisions for MVP**
 
 ### **What We're Keeping Simple:**
-- **AccountId instead of H160** - Avoid migration complexity for demo
+- **H160 Addresses** - Ethereum-compatible addresses for future cross-chain support
 - **Basic Error Handling** - Simple enum, user-friendly messages later
 - **Single Game Mode** - One game at a time, no multiple instances
 - **Manual Winner Selection** - Admin picks winners, automated scoring later
-- **Polkadot.js Only** - Skip multi-wallet complexity for MVP
+- **Modern SDK Only** - Focus on @polkadot-api/sdk-ink with local signers
 
 ### **What We'll Improve Post-Hackathon:**
-- **H160 Migration** - Ethereum-style addresses for better UX
+- **Advanced UI/UX** - Better design, animations, mobile responsiveness
 - **Automated Game Flow** - Time-based transitions, registration deadlines
 - **Advanced Security** - Reentrancy protection, formal verification
-- **Cross-Chain Support** - Bridge to Ethereum, other networks
-- **Mobile App** - Native iOS/Android with better UX
+- **Cross-Chain Integration** - Bridge to Ethereum, leverage H160 compatibility
+- **Mobile App** - Native iOS/Android with Ethereum wallet integration
 
 ---
 
