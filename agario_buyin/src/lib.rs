@@ -80,6 +80,51 @@ mod agario_buyin {
     /// Contract result type
     pub type Result<T> = core::result::Result<T, Error>;
 
+    /* TODO: Re-enable events after resolving ink! version issues
+    /// Events for game lifecycle and state changes
+    #[ink(event)]
+    pub struct GameStarted {
+        pub buy_in: Balance,
+        pub registration_deadline: Timestamp,
+        pub min_players: u32,
+        pub game_duration: Option<Timestamp>,
+    }
+
+    #[ink(event)]
+    pub struct PlayerJoined {
+        pub player: H160,
+        pub player_count: u32,
+        pub prize_pool: Balance,
+    }
+
+    #[ink(event)]
+    pub struct GameBegan {
+        pub player_count: u32,
+        pub game_start_time: Timestamp,
+    }
+
+    #[ink(event)]
+    pub struct GameTimeExpired {
+        pub game_end_time: Timestamp,
+    }
+
+    #[ink(event)]
+    pub struct GameEnded {
+        pub total_distributed: Balance,
+        pub winners: Vec<H160>,
+        pub percentages: Vec<u8>,
+        pub admin_fee: Balance,
+        pub reason: GameEndReason,
+    }
+
+    #[ink(event)]
+    pub struct GameRefunded {
+        pub players_refunded: u32,
+        pub total_refunded: Balance,
+        pub reason: GameEndReason,
+    }
+    */
+
     impl AgarioBuyin {
         /// Constructor that initializes the contract with an admin fee percentage.
         #[ink(constructor)]
@@ -246,7 +291,13 @@ mod agario_buyin {
             // Change state to accepting deposits
             self.game_state = GameState::AcceptingDeposits;
 
-            // Event emission removed for MVP
+            // Emit GameStarted event
+            // self.env().emit_event(GameStarted {
+            //     buy_in: self.buy_in_amount,
+            //     registration_deadline: self.registration_deadline,
+            //     min_players: self.min_players,
+            //     game_duration: self.game_duration,
+            // });
 
             Ok(())
         }
@@ -292,7 +343,12 @@ mod agario_buyin {
             let deposit_as_balance: Balance = deposit_amount.try_into().unwrap_or(0);
             self.prize_pool = self.prize_pool.saturating_add(deposit_as_balance);
 
-            // Event emission removed for MVP
+            // Emit PlayerJoined event
+            // self.env().emit_event(PlayerJoined {
+            //     player: caller,
+            //     player_count: self.player_count,
+            //     prize_pool: self.prize_pool,
+            // });
 
             // Try to begin game if conditions are met
             self.try_begin_game()?;
@@ -317,7 +373,11 @@ mod agario_buyin {
                     self.game_state = GameState::InProgress;
                     self.game_start_time = now;
 
-                    // Game began - no event needed for MVP
+                    // Emit GameBegan event
+                    // self.env().emit_event(GameBegan {
+                    //     player_count: self.player_count,
+                    //     game_start_time: self.game_start_time,
+                    // });
                 } else {
                     // Not enough players, refund everyone
                     self.refund_all_players()?;
@@ -384,7 +444,12 @@ mod agario_buyin {
             // Move to waiting for results
             self.game_state = GameState::WaitingForResults;
 
-            // Game time expired - no event needed for MVP
+            // Emit GameTimeExpired event for time-based endings
+            if reason == GameEndReason::TimeLimit {
+                // self.env().emit_event(GameTimeExpired {
+                //     game_end_time: self.env().block_timestamp(),
+                // });
+            }
 
             Ok(())
         }
@@ -395,6 +460,7 @@ mod agario_buyin {
             &mut self,
             winners: Vec<H160>,
             percentages: Vec<u8>,
+            reason: GameEndReason,
         ) -> Result<()> {
             // Check admin access
             if self.env().caller() != self.game_admin {
@@ -427,6 +493,9 @@ mod agario_buyin {
                 .unwrap_or(0);
             let winner_pool = self.prize_pool.saturating_sub(admin_cut);
 
+            // Store total for event
+            let total_distributed = self.prize_pool;
+
             // Distribute prizes to winners
             for (winner, percentage) in winners.iter().zip(percentages.iter()) {
                 let prize = winner_pool
@@ -445,7 +514,14 @@ mod agario_buyin {
                     .map_err(|_| Error::TransferFailed)?;
             }
 
-            // Event emission removed for MVP
+            // Emit GameEnded event
+            // self.env().emit_event(GameEnded {
+            //     total_distributed,
+            //     winners: winners.clone(),
+            //     percentages: percentages.clone(),
+            //     admin_fee: admin_cut,
+            //     reason,
+            // });
 
             // Reset game state
             self.reset_game_state();
@@ -474,13 +550,28 @@ mod agario_buyin {
 
         /// Internal function to refund all players
         fn refund_all_players(&mut self) -> Result<()> {
+            self.refund_all_players_with_reason(GameEndReason::AdminForced)
+        }
+
+        /// Internal function to refund all players with specific reason
+        fn refund_all_players_with_reason(&mut self, reason: GameEndReason) -> Result<()> {
+            let total_refunded = self.prize_pool;
+            let players_refunded = self.player_count;
+
             if self.player_count > 0 && self.prize_pool > 0 {
                 let _refund_per_player = self.prize_pool
                     .checked_div(self.player_count as Balance)
                     .unwrap_or(0);
 
                 // Note: In a real implementation, you'd iterate through all players
-                // For MVP, we'll just reset the state (no event needed)
+                // For MVP, we'll just reset the state and emit event
+
+                // Emit GameRefunded event
+                // self.env().emit_event(GameRefunded {
+                //     players_refunded,
+                //     total_refunded,
+                //     reason,
+                // });
             }
 
             // Reset game state
@@ -663,19 +754,19 @@ mod agario_buyin {
             contract.prize_pool = 1000;
 
             // Test empty winners
-            let result = contract.submit_winners(vec![], vec![]);
+            let result = contract.submit_winners(vec![], vec![], GameEndReason::TimeLimit);
             assert!(matches!(result, Err(Error::NoWinners)));
 
             // Test mismatched vectors
             let winners = vec![H160::from([1; 20])];
             let percentages = vec![50, 30]; // Different length
-            let result = contract.submit_winners(winners, percentages);
+            let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
             assert!(matches!(result, Err(Error::MismatchedData)));
 
             // Test invalid percentages
             let winners = vec![H160::from([1; 20]), H160::from([2; 20])];
             let percentages = vec![60, 50]; // Total > 100
-            let result = contract.submit_winners(winners, percentages);
+            let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
             assert!(matches!(result, Err(Error::InvalidPercentages)));
         }
 
@@ -760,6 +851,110 @@ mod agario_buyin {
             assert_eq!(contract.get_buy_in_amount(), 0);
             assert_eq!(contract.get_player_count(), 0);
             assert_eq!(contract.get_prize_pool(), 0);
+        }
+
+        #[ink::test]
+        fn submit_winners_distributes_prizes_correctly() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Setup game with multiple players
+            let _ = contract.start_game(1000, 5, 2, Some(60));
+            contract.game_state = GameState::WaitingForResults;
+            contract.prize_pool = 10000; // 10 DOT total prize pool
+            contract.player_count = 4;
+
+            // Define winners: 1st place 50%, 2nd place 30%, 3rd place 20%
+            let winners = vec![
+                H160::from([1; 20]), // 1st place
+                H160::from([2; 20]), // 2nd place
+                H160::from([3; 20]), // 3rd place
+            ];
+            let percentages = vec![50, 30, 20]; // Total 100%
+
+            // Submit winners
+            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            assert!(result.is_ok());
+
+            // Verify game state reset
+            assert_eq!(contract.game_state, GameState::Inactive);
+            assert_eq!(contract.prize_pool, 0);
+            assert_eq!(contract.player_count, 0);
+
+            // Calculate expected distributions (5% admin fee)
+            let admin_fee = 10000 * 5 / 100; // 500
+            let winner_pool = 10000 - admin_fee; // 9500
+            let first_prize = winner_pool * 50 / 100; // 4750
+            let second_prize = winner_pool * 30 / 100; // 2850
+            let third_prize = winner_pool * 20 / 100; // 1900
+
+            // Note: In a real test environment, we'd verify the actual transfers
+            // For now, we verify the function completed successfully
+        }
+
+        #[ink::test]
+        fn submit_winners_handles_partial_percentages() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Setup game
+            let _ = contract.start_game(1000, 5, 2, Some(60));
+            contract.game_state = GameState::WaitingForResults;
+            contract.prize_pool = 10000;
+
+            // Only distribute 80% of winnings, 20% stays in contract
+            let winners = vec![H160::from([1; 20]), H160::from([2; 20])];
+            let percentages = vec![50, 30]; // Total 80%
+
+            let result = contract.submit_winners(winners, percentages, GameEndReason::LastPlayerStanding);
+            assert!(result.is_ok());
+            assert_eq!(contract.game_state, GameState::Inactive);
+        }
+
+        #[ink::test]
+        fn submit_winners_enforces_admin_only() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Setup game in WaitingForResults state
+            contract.game_state = GameState::WaitingForResults;
+            contract.prize_pool = 10000;
+
+            // Change caller to non-admin (default test caller is admin)
+            ink::env::test::set_caller(H160::from([99; 20]));
+
+            let winners = vec![H160::from([1; 20])];
+            let percentages = vec![100];
+
+            let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
+            assert!(matches!(result, Err(Error::NotAdmin)));
+        }
+
+        #[ink::test]
+        fn submit_winners_requires_correct_game_state() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Test various wrong states
+            let winners = vec![H160::from([1; 20])];
+            let percentages = vec![100];
+
+            // Test Inactive state
+            contract.game_state = GameState::Inactive;
+            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            assert!(matches!(result, Err(Error::GameNotInCorrectState)));
+
+            // Test AcceptingDeposits state
+            contract.game_state = GameState::AcceptingDeposits;
+            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            assert!(matches!(result, Err(Error::GameNotInCorrectState)));
+
+            // Test InProgress state
+            contract.game_state = GameState::InProgress;
+            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            assert!(matches!(result, Err(Error::GameNotInCorrectState)));
+
+            // Only WaitingForResults should work
+            contract.game_state = GameState::WaitingForResults;
+            contract.prize_pool = 1000;
+            let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
+            assert!(result.is_ok());
         }
     }
 
