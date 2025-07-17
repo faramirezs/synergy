@@ -155,7 +155,7 @@ mod agario_buyin {
         /// Check if a player is registered
         #[ink(message)]
         pub fn is_player_registered(&self, player: H160) -> bool {
-            self.players.get(&player).is_some()
+            self.players.get(player).is_some()
         }
 
         /// Get contract admin
@@ -178,11 +178,7 @@ mod agario_buyin {
             }
 
             let now = self.env().block_timestamp();
-            if now >= self.registration_deadline {
-                0
-            } else {
-                self.registration_deadline - now
-            }
+            self.registration_deadline.saturating_sub(now)
         }
 
         /// Get time remaining for game (if in InProgress state)
@@ -195,11 +191,11 @@ mod agario_buyin {
             match self.game_duration {
                 Some(duration) => {
                     let now = self.env().block_timestamp();
-                    let game_end_time = self.game_start_time + duration;
+                    let game_end_time = self.game_start_time.saturating_add(duration);
                     if now >= game_end_time {
                         Some(0)
                     } else {
-                        Some(game_end_time - now)
+                        Some(game_end_time.saturating_sub(now))
                     }
                 },
                 None => None, // No time limit
@@ -234,10 +230,14 @@ mod agario_buyin {
             let now = self.env().block_timestamp();
             self.buy_in_amount = buy_in;
             self.min_players = min_players;
-            self.registration_deadline = now + (registration_minutes as u64 * 60 * 1000); // Convert minutes to milliseconds
+            self.registration_deadline = now.saturating_add(
+                (registration_minutes as u64).saturating_mul(60).saturating_mul(1000)
+            ); // Convert minutes to milliseconds
 
             // Set game duration if specified
-            self.game_duration = game_duration_minutes.map(|minutes| minutes as u64 * 60 * 1000);
+            self.game_duration = game_duration_minutes.map(|minutes|
+                (minutes as u64).saturating_mul(60).saturating_mul(1000)
+            );
 
             // Reset player data
             self.player_count = 0;
@@ -287,10 +287,10 @@ mod agario_buyin {
 
             // Add player
             self.players.insert(caller, &());
-            self.player_count += 1;
+            self.player_count = self.player_count.saturating_add(1);
             // Convert U256 to Balance (u128) safely
             let deposit_as_balance: Balance = deposit_amount.try_into().unwrap_or(0);
-            self.prize_pool += deposit_as_balance;
+            self.prize_pool = self.prize_pool.saturating_add(deposit_as_balance);
 
             // Event emission removed for MVP
 
@@ -421,12 +421,18 @@ mod agario_buyin {
             }
 
             // Calculate admin fee
-            let admin_cut = (self.prize_pool * self.admin_fee_percentage as Balance) / 100;
-            let winner_pool = self.prize_pool - admin_cut;
+            let admin_cut = self.prize_pool
+                .saturating_mul(self.admin_fee_percentage as Balance)
+                .checked_div(100)
+                .unwrap_or(0);
+            let winner_pool = self.prize_pool.saturating_sub(admin_cut);
 
             // Distribute prizes to winners
             for (winner, percentage) in winners.iter().zip(percentages.iter()) {
-                let prize = (winner_pool * *percentage as Balance) / 100;
+                let prize = winner_pool
+                    .saturating_mul(*percentage as Balance)
+                    .checked_div(100)
+                    .unwrap_or(0);
                 if prize > 0 {
                     self.env().transfer(*winner, prize.into())
                         .map_err(|_| Error::TransferFailed)?;
@@ -469,7 +475,9 @@ mod agario_buyin {
         /// Internal function to refund all players
         fn refund_all_players(&mut self) -> Result<()> {
             if self.player_count > 0 && self.prize_pool > 0 {
-                let _refund_per_player = self.prize_pool / self.player_count as Balance;
+                let _refund_per_player = self.prize_pool
+                    .checked_div(self.player_count as Balance)
+                    .unwrap_or(0);
 
                 // Note: In a real implementation, you'd iterate through all players
                 // For MVP, we'll just reset the state (no event needed)
