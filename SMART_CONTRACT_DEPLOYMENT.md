@@ -142,6 +142,16 @@ cargo contract build # Build contract
   - Production artifacts: 90 days
   - Release artifacts: Permanent
 
+## 🔄 **Latest Updates**
+
+- ✅ **Updated to latest GitHub Actions**:
+  - `actions/upload-artifact@v4` (was v3)
+  - `actions/cache@v4` (was v3)
+  - `dtolnay/rust-toolchain@stable` (replaces deprecated actions-rs/toolchain)
+  - `softprops/action-gh-release@v2` (replaces deprecated actions/create-release)
+- ✅ **Improved Release Process**: Automatic file uploads to GitHub releases
+- ✅ **Better Rust Toolchain Management**: More reliable and faster setup
+
 ## 🆘 **Troubleshooting**
 
 ### **Common Issues:**

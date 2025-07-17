@@ -26,16 +26,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
+          targets: wasm32-unknown-unknown
           components: rust-src
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -68,7 +66,7 @@ jobs:
           file target/ink/agario_buyin.contract
 
       - name: Upload contract artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: smart-contract-artifacts-${{ github.sha }}
           path: |
@@ -89,15 +87,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          override: true
           components: rustfmt, clippy
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -130,11 +126,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          override: true
 
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
@@ -155,16 +149,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
+          targets: wasm32-unknown-unknown
           components: rust-src
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -196,12 +188,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
+          targets: wasm32-unknown-unknown
           components: rust-src
 
       - name: Install cargo-contract
@@ -221,7 +211,7 @@ jobs:
           echo "Git Ref: ${{ github.ref }}" >> ../deployment/contracts/BUILD_INFO.txt
 
       - name: Upload deployment artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: production-contract-${{ github.sha }}
           path: deployment/contracts/
@@ -229,11 +219,16 @@ jobs:
 
       - name: Create GitHub Release (on tags)
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Smart Contract Release ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
+          name: Smart Contract Release ${{ github.ref_name }}
           draft: false
           prerelease: false
+          files: |
+            deployment/contracts/agario_buyin.contract
+            deployment/contracts/agario_buyin.wasm
+            deployment/contracts/agario_buyin.json
+            deployment/contracts/BUILD_INFO.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
