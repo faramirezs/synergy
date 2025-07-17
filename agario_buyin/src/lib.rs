@@ -981,6 +981,193 @@ mod agario_buyin {
             let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
             assert!(result.is_ok());
         }
+
+        /// 🎯 MVP CRITICAL TEST: Complete happy path flow (start → deposit → end)
+        /// This test simulates the exact flow that will be demonstrated in the hackathon
+        #[ink::test]
+        fn mvp_complete_happy_path_flow() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // STEP 1: Admin starts game (Demo Step 1)
+            assert_eq!(contract.get_game_state(), GameState::Inactive);
+            let result = contract.start_game(1000000000000, 10, 2, Some(30)); // 1 DOT buy-in, 10min reg, 2 min players, 30min duration
+            assert!(result.is_ok());
+            assert_eq!(contract.get_game_state(), GameState::AcceptingDeposits);
+            assert_eq!(contract.get_buy_in_amount(), 1000000000000);
+            assert_eq!(contract.get_min_players(), 2);
+
+            // STEP 2: Players join game (Demo Step 2)
+            // Simulate multiple players depositing
+            // Note: In real demo, we'd use payable calls with actual DOT transfers
+
+            // Manually simulate player registration for MVP testing
+            let player1 = H160::from([1; 20]);
+            let player2 = H160::from([2; 20]);
+            let player3 = H160::from([3; 20]);
+
+            // Simulate player deposits by manually updating state (for unit test)
+            contract.players.insert(player1, &());
+            contract.player_count = 1;
+            contract.prize_pool = 1000000000000; // 1 DOT
+
+            contract.players.insert(player2, &());
+            contract.player_count = 2;
+            contract.prize_pool = 2000000000000; // 2 DOT
+
+            contract.players.insert(player3, &());
+            contract.player_count = 3;
+            contract.prize_pool = 3000000000000; // 3 DOT
+
+            // Verify player registrations
+            assert!(contract.is_player_registered(player1));
+            assert!(contract.is_player_registered(player2));
+            assert!(contract.is_player_registered(player3));
+            assert_eq!(contract.get_player_count(), 3);
+            assert_eq!(contract.get_prize_pool(), 3000000000000);
+
+            // STEP 3: Game begins automatically when conditions met
+            // Simulate time passing and try to begin game
+            contract.registration_deadline = 0; // Simulate deadline passed
+            let result = contract.try_begin_game();
+            assert!(result.is_ok());
+            assert_eq!(contract.get_game_state(), GameState::InProgress);
+
+            // STEP 4: Game ends and transitions to WaitingForResults
+            let result = contract.report_game_end(GameEndReason::LastPlayerStanding);
+            assert!(result.is_ok());
+            assert_eq!(contract.get_game_state(), GameState::WaitingForResults);
+
+            // STEP 5: Admin submits winners and distributes prizes (Demo Step 3)
+            let winners = vec![player1, player2]; // 1st and 2nd place
+            let percentages = vec![60, 40]; // 60% to winner, 40% to second place
+
+            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::LastPlayerStanding);
+            assert!(result.is_ok());
+
+            // STEP 6: Verify game reset for next round (Demo Step 4)
+            assert_eq!(contract.get_game_state(), GameState::Inactive);
+            assert_eq!(contract.get_player_count(), 0);
+            assert_eq!(contract.get_prize_pool(), 0);
+            assert_eq!(contract.get_buy_in_amount(), 0);
+
+            // Prize distribution verification:
+            // Total pool: 3 DOT (3,000,000,000,000)
+            // Admin fee (5%): 150,000,000,000
+            // Winner pool: 2,850,000,000,000
+            // 1st place (60%): 1,710,000,000,000
+            // 2nd place (40%): 1,140,000,000,000
+            // Note: Actual transfer verification would be done in E2E tests
+        }
+
+        /// 🎯 MVP TEST: Admin access control enforcement
+        #[ink::test]
+        fn mvp_admin_access_control_comprehensive() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Mock non-admin caller
+            let non_admin_address = H160::from([99; 20]);
+
+            // Test 1: start_game requires admin
+            ink::env::test::set_caller(non_admin_address);
+            let result = contract.start_game(1000, 10, 2, Some(30));
+            assert!(matches!(result, Err(Error::NotAdmin)));
+
+            // Reset to admin caller
+            ink::env::test::set_caller(contract.game_admin);
+            contract.start_game(1000, 10, 2, Some(30)).unwrap();
+            contract.game_state = GameState::WaitingForResults;
+            contract.prize_pool = 1000;
+
+            // Test 2: submit_winners requires admin
+            ink::env::test::set_caller(non_admin_address);
+            let winners = vec![H160::from([1; 20])];
+            let percentages = vec![100];
+            let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
+            assert!(matches!(result, Err(Error::NotAdmin)));
+
+            // Test 3: force_end_game requires admin
+            let result = contract.force_end_game();
+            assert!(matches!(result, Err(Error::NotAdmin)));
+
+            // Reset to admin and verify functions work
+            ink::env::test::set_caller(contract.game_admin);
+            let winners = vec![H160::from([1; 20])];
+            let percentages = vec![100];
+            let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
+            assert!(result.is_ok());
+        }
+
+        /// 🎯 MVP TEST: Critical error cases for demo robustness
+        #[ink::test]
+        fn mvp_critical_error_cases() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Error Case 1: Starting game with invalid parameters
+            let result = contract.start_game(1000, 10, 1, Some(30)); // < 2 min players
+            assert!(matches!(result, Err(Error::TooFewPlayers)));
+
+            // Error Case 2: Operations in wrong game state
+            let winners = vec![H160::from([1; 20])];
+            let percentages = vec![100];
+            let result = contract.submit_winners(winners.clone(), percentages.clone(), GameEndReason::TimeLimit);
+            assert!(matches!(result, Err(Error::GameNotInCorrectState))); // Game not started
+
+            // Error Case 3: Invalid winner data
+            contract.start_game(1000, 10, 2, Some(30)).unwrap();
+            contract.game_state = GameState::WaitingForResults;
+            contract.prize_pool = 1000;
+
+            // Empty winners
+            let result = contract.submit_winners(vec![], vec![], GameEndReason::TimeLimit);
+            assert!(matches!(result, Err(Error::NoWinners)));
+
+            // Mismatched data
+            let result = contract.submit_winners(winners, vec![50, 30], GameEndReason::TimeLimit); // length mismatch
+            assert!(matches!(result, Err(Error::MismatchedData)));
+
+            // Invalid percentages (> 100%)
+            let winners = vec![H160::from([1; 20]), H160::from([2; 20])];
+            let percentages = vec![60, 50]; // 110% total
+            let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
+            assert!(matches!(result, Err(Error::InvalidPercentages)));
+        }
+
+        /// 🎯 MVP TEST: Game timing and automatic transitions
+        #[ink::test]
+        fn mvp_timing_and_transitions() {
+            let mut contract = AgarioBuyin::new(5).unwrap();
+
+            // Test automatic transition from registration to game start
+            contract.start_game(1000, 0, 2, Some(10)).unwrap(); // Immediate deadline
+            contract.player_count = 3; // Sufficient players
+            contract.registration_deadline = 0; // Past deadline
+
+            // Should auto-transition to InProgress
+            let result = contract.check_game_conditions();
+            assert!(result.is_ok());
+            assert_eq!(contract.get_game_state(), GameState::InProgress);
+
+            // Test game duration expiry
+            contract.game_start_time = 0;
+            contract.game_duration = Some(0); // Immediate expiry
+
+            // Should auto-transition to WaitingForResults
+            let result = contract.check_game_conditions();
+            assert!(result.is_ok());
+            assert_eq!(contract.get_game_state(), GameState::WaitingForResults);
+
+            // Test refund on insufficient players
+            let mut contract2 = AgarioBuyin::new(5).unwrap();
+            contract2.start_game(1000, 0, 5, Some(10)).unwrap(); // Need 5 players
+            contract2.player_count = 2; // Only 2 players
+            contract2.registration_deadline = 0; // Past deadline
+
+            // Should refund and reset
+            let result = contract2.check_game_conditions();
+            assert!(result.is_ok());
+            assert_eq!(contract2.get_game_state(), GameState::Inactive);
+            assert_eq!(contract2.player_count, 0);
+        }
     }
 
     /// This is how you'd write end-to-end (E2E) or integration tests for ink! contracts.
