@@ -4,7 +4,52 @@ var render = require('./render');
 var ChatClient = require('./chat-client');
 var Canvas = require('./canvas');
 var global = require('./global');
+
+var TokenAssetManager = require('./token-asset-manager');
+
+// Initialize token asset manager
+var tokenManager = new TokenAssetManager();
+global.tokenManager = tokenManager;
+
+let playerName = '';
+let playerMass = 10;
+let playerColor = '#333';
+let playerType = 'player';
+let selectedTokenType = 'coin'; // Default token type
+
+// Set global reference for selected token
+global.selectedTokenType = selectedTokenType;
+
+// Token selection functionality
+document.addEventListener('DOMContentLoaded', function() {
+    setupTokenSelection();
+});
+
+function setupTokenSelection() {
+    const tokenOptions = document.querySelectorAll('.token-option');
+    
+    // Set default selection
+    document.getElementById('token-coin').classList.add('selected');
+    
+    // Handle token selection
+    tokenOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Remove selected class from all options
+            tokenOptions.forEach(opt => opt.classList.remove('selected'));
+            
+            // Add selected class to clicked option
+            this.classList.add('selected');
+            
+            // Update selected token type
+            selectedTokenType = this.dataset.token;
+            global.selectedTokenType = selectedTokenType;
+            console.log('Selected token:', selectedTokenType);
+        });
+    });
+}
+
 var contractConnection = require('./contract-connection');
+
 
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
@@ -236,6 +281,10 @@ function setupSocket(socket) {
         player.screenWidth = global.screen.width;
         player.screenHeight = global.screen.height;
         player.target = window.canvas.target;
+        
+        // Add token selection - get from UI or use random
+        player.tokenType = global.selectedTokenType || tokenManager.getRandomTokenType();
+        console.log('Player token type:', player.tokenType);
 
         // Include wallet address if available
         if (window.connectedWallet) {
@@ -312,7 +361,24 @@ function setupSocket(socket) {
             player.hue = playerData.hue;
             player.massTotal = playerData.massTotal;
             player.cells = playerData.cells;
+            
+            // Add token type to player's own cells
+            if (playerData.tokenType) {
+                for (let cell of player.cells) {
+                    cell.tokenType = playerData.tokenType;
+                }
+            }
         }
+        
+        // Add token type to each user's cells
+        for (let user of userData) {
+            if (user.tokenType) {
+                for (let cell of user.cells) {
+                    cell.tokenType = user.tokenType;
+                }
+            }
+        }
+        
         users = userData;
         foods = foodsList;
         viruses = virusList;
