@@ -115,6 +115,10 @@ exports.Player = class {
         if (playerData.walletAddress) {
             this.walletAddress = playerData.walletAddress;
         }
+        // Store token type if provided
+        if (playerData.tokenType) {
+            this.tokenType = playerData.tokenType;
+        }
         this.setLastHeartbeat();
     }
 

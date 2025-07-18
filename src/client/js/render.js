@@ -76,16 +76,27 @@ const drawCellWithLines = (cell, borders, graph) => {
 
 const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
     for (let cell of cells) {
-        // Draw the cell itself
-        graph.fillStyle = cell.color;
-        graph.strokeStyle = cell.borderColor;
-        graph.lineWidth = 6;
-        if (cellTouchingBorders(cell, borders)) {
-            // Asssemble the cell from lines
-            drawCellWithLines(cell, borders, graph);
-        } else {
-            // Border corrections are not needed, the cell can be drawn as a circle
-            drawRoundObject(cell, cell.radius, graph);
+        // Draw the cell as a token instead of a circle
+        const tokenSize = cell.radius * 2; // Token size based on cell radius
+        const tokenId = cell.tokenType || 'coin'; // Get token type from cell data
+        
+        // Try to draw token, fallback to circle if token not available
+        const tokenDrawn = window.tokenAssetManager && window.tokenAssetManager.drawToken(
+            graph, tokenId, cell.x, cell.y, tokenSize
+        );
+        
+        if (!tokenDrawn) {
+            // Fallback to original circle drawing
+            graph.fillStyle = cell.color;
+            graph.strokeStyle = cell.borderColor;
+            graph.lineWidth = 6;
+            if (cellTouchingBorders(cell, borders)) {
+                // Asssemble the cell from lines
+                drawCellWithLines(cell, borders, graph);
+            } else {
+                // Border corrections are not needed, the cell can be drawn as a circle
+                drawRoundObject(cell, cell.radius, graph);
+            }
         }
 
         // Draw the name of the player
