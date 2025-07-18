@@ -7,11 +7,7 @@
 
 ## Introduction:
 
-So we've been coding for nearly 20 hours straight, building something we'd never attempted before – a smart contract for our Agario-style game, and this is our process:
-
-"Wait, why is this function not payable?" whispers Sarah, pointing at her screen.
-
-"Because you forgot the `#[ink(message, payable)]` attribute again!" laughs Marcus, not looking up from his debugging session.
+So we've been coding for 2 days, building something we'd never attempted before – a smart contract treasury for our Agario-style game, and this is our process:
 
 This is our story. We're computer science students who barely knew some Rust, had heard about blockchain, but had never actually built a smart contract. Fast forward 48 hours, and we had a fully functional game treasury managing player buy-ins, prize distribution, and complex game state management.
 
@@ -111,7 +107,7 @@ Messages are functions that can be called from outside the contract. Notice `&mu
 
 ### Our First "Aha!" Moment
 
-During the hackathon, Emma got confused about `&self` vs `&mut self`:
+During the hackathon, one team member got confused about `&self` vs `&mut self`:
 
 - `&self`: Read-only access (like `get()`)
 - `&mut self`: Can modify storage (like `flip()`)
@@ -220,7 +216,7 @@ impl SimpleGame {
 
 ### A Lesson from Our Debugging Session
 
-At 2 AM, Marcus discovered something important about storage: **Everything in the storage struct persists on the blockchain forever**. This means:
+At 2 AM, one team member discovered something important about storage: **Everything in the storage struct persists on the blockchain forever**. This means:
 
 - Storage is expensive (costs gas)
 - You should only store what you absolutely need
@@ -719,7 +715,7 @@ pub enum Error {
 
 ### Why Testing Saved Our Hackathon
 
-At 6 AM on the final day, Sarah's test caught a critical bug in our prize distribution logic. Without tests, we would have shipped a contract that could lose players' money!
+At 6 AM on the final day, one team member's test caught a critical bug in our prize distribution logic. Without tests, we would have shipped a contract that could lose players' money!
 
 ### Unit Testing Basics
 
@@ -1396,4 +1392,4 @@ Remember, every expert was once a beginner. Start building, keep learning, and j
 
 ---
 
-*This tutorial was written with ❤️ by the 42 Berlin team based on our real hackathon experience at Web3 Summit 2025. Special thanks to Sarah, Marcus, Emma, Alex, and the entire ink! community for making this journey possible.*
+*This tutorial was written with ❤️ by the 42 Berlin team based on our real hackathon experience at Web3 Summit 2025. Special thanks to the entire ink! community for making this journey possible.*
