@@ -220,6 +220,38 @@ div {
     box-shadow: none;
 }
 
+/* Admin Button Styling */
+#adminButton {
+    position: relative;
+    margin: auto;
+    margin-top: 10px;
+    width: 100%;
+    height: 40px;
+    box-sizing: border-box;
+    font-size: large;
+    color: white;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    background: #e74c3c;
+    border: 0;
+    border-bottom: 2px solid #c0392b;
+    cursor: pointer;
+    -webkit-box-shadow: inset 0 -2px #c0392b;
+    box-shadow: inset 0 -2px #c0392b;
+    border-radius: 5px;
+    -moz-border-radius: 5px;
+    -webkit-border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+#adminButton:active, #adminButton:hover {
+    top: 1px;
+    background: #e67e22;
+    outline: none;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+}
+
 #settings, #startMenuWrapper {
     -webkit-transition: max-height 1s;
     -moz-transition: max-height 1s;
@@ -231,6 +263,171 @@ div {
 
 #settings {
     max-height: 0;
+}
+
+/* Admin Panel Styling */
+#admin-panel {
+    max-height: 0;
+    -webkit-transition: max-height 1s;
+    -moz-transition: max-height 1s;
+    -ms-transition: max-height 1s;
+    -o-transition: max-height 1s;
+    transition: max-height 1s;
+    overflow: hidden;
+}
+
+.admin-form {
+    margin: 10px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+}
+
+.admin-form label {
+    display: block;
+    color: white;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.admin-form input, .admin-form select {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #34495e;
+    border-radius: 4px;
+    background: #2c3e50;
+    color: white;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.admin-form input:focus, .admin-form select:focus {
+    outline: none;
+    border-color: #3498db;
+    background: #34495e;
+}
+
+.admin-actions {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-action-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    background: #3498db;
+    border-bottom: 2px solid #2980b9;
+    transition: background 0.3s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.admin-action-btn:hover {
+    background: #5dade2;
+}
+
+.admin-action-btn:disabled {
+    background: #7f8c8d;
+    border-bottom: 2px solid #6c757d;
+    cursor: not-allowed;
+}
+
+.admin-action-btn.success {
+    background: #27ae60;
+    border-bottom: 2px solid #229954;
+}
+
+.admin-action-btn.success:hover {
+    background: #58d68d;
+}
+
+.admin-action-btn.warning {
+    background: #f39c12;
+    border-bottom: 2px solid #e67e22;
+}
+
+.admin-action-btn.warning:hover {
+    background: #f7dc6f;
+}
+
+.admin-action-btn.danger {
+    background: #e74c3c;
+    border-bottom: 2px solid #c0392b;
+}
+
+.admin-action-btn.danger:hover {
+    background: #ec7063;
+}
+
+.admin-status {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    border-left: 4px solid #3498db;
+    min-height: 20px;
+}
+
+.admin-status p {
+    margin: 0;
+    color: #ecf0f1;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+/* Registration Timer Styling */
+.registration-timer {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(255, 165, 0, 0.2);
+    border-radius: 4px;
+    border-left: 4px solid #f39c12;
+    text-align: center;
+}
+
+.timer-display {
+    font-size: 18px;
+    font-weight: bold;
+    color: #f39c12;
+    margin-bottom: 5px;
+}
+
+.timer-label {
+    font-size: 12px;
+    color: #ecf0f1;
+    margin: 0;
+}
+
+/* Game UI Elements */
+.game-ui-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+}
+
+.return-menu-btn {
+    padding: 10px 15px;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    border-bottom: 2px solid #c0392b;
+}
+
+.return-menu-btn:hover {
+    background: #ec7063;
 }
 
 #startMenu h3 {

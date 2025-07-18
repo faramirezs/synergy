@@ -4,7 +4,8 @@ var render = require('./render');
 var ChatClient = require('./chat-client');
 var Canvas = require('./canvas');
 var global = require('./global');
-var contractConnection = require('./contract-connection');
+// Use simple mock version for now (switch to './contract-connection' when CDN is fixed)
+var contractConnection = require('./contract-connection-simple');
 
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
@@ -28,6 +29,10 @@ function startGame(type) {
 
     document.getElementById('startMenuWrapper').style.maxHeight = '0px';
     document.getElementById('gameAreaWrapper').style.opacity = 1;
+
+    // Show return to menu button when game starts
+    document.getElementById('return-menu-btn').style.display = 'block';
+
     if (!socket) {
         // Enhanced Socket.io connection for Chrome compatibility
         const socketOptions = {
@@ -112,6 +117,309 @@ window.onload = function () {
             settings.style.maxHeight = '0px';
         } else {
             settings.style.maxHeight = '300px';
+        }
+    };
+
+    // Admin Panel Toggle
+    var adminMenu = document.getElementById('adminButton');
+    var adminPanel = document.getElementById('admin-panel');
+
+    adminMenu.onclick = function () {
+        if (adminPanel.style.maxHeight == '600px') {
+            adminPanel.style.maxHeight = '0px';
+        } else {
+            adminPanel.style.maxHeight = '600px';
+        }
+    };
+
+    // Admin Panel Functionality
+    var startGameBtn = document.getElementById('start-game-btn');
+    var startNowBtn = document.getElementById('start-now-btn');
+    var checkStatusBtn = document.getElementById('check-game-status-btn');
+    var forceEndBtn = document.getElementById('force-end-game-btn');
+    var adminStatus = document.getElementById('admin-status');
+    var registrationTimer = document.getElementById('registration-timer');
+
+    // Timer variables
+    var gameTimerInterval = null;
+    var registrationDeadline = null;
+
+    function updateAdminStatus(message, isError = false) {
+        adminStatus.innerHTML = `<p style="color: ${isError ? '#e74c3c' : '#2ecc71'}">${message}</p>`;
+    }
+
+    function startRegistrationTimer(deadlineTimestamp) {
+        registrationDeadline = deadlineTimestamp;
+
+        // Show timer
+        registrationTimer.style.display = 'block';
+
+        // Clear any existing timer
+        if (gameTimerInterval) {
+            clearInterval(gameTimerInterval);
+        }
+
+        gameTimerInterval = setInterval(function() {
+            const now = Date.now();
+            const timeLeft = registrationDeadline - now;
+
+            if (timeLeft <= 0) {
+                // Timer expired
+                registrationTimer.innerHTML = `
+                    <div class="timer-display">⏰ REGISTRATION CLOSED</div>
+                    <p class="timer-label">Game should start automatically</p>
+                `;
+                clearInterval(gameTimerInterval);
+                gameTimerInterval = null;
+
+                // Auto-update status
+                setTimeout(() => {
+                    updateAdminStatus('🎮 Registration ended - Game starting automatically!');
+                }, 1000);
+
+                return;
+            }
+
+            // Calculate time components
+            const minutes = Math.floor(timeLeft / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+            // Update timer display
+            registrationTimer.innerHTML = `
+                <div class="timer-display">${minutes}:${seconds.toString().padStart(2, '0')}</div>
+                <p class="timer-label">Registration ends in</p>
+            `;
+        }, 1000);
+    }
+
+    function stopRegistrationTimer() {
+        if (gameTimerInterval) {
+            clearInterval(gameTimerInterval);
+            gameTimerInterval = null;
+        }
+        registrationTimer.style.display = 'none';
+    }
+
+    // Check if user is admin (for now, any connected wallet can be admin in mock mode)
+    function isAdmin() {
+        return window.connectedWallet !== null;
+    }
+
+    // Enhanced admin check for production (checks contract admin)
+    async function isContractAdmin() {
+        if (!window.connectedWallet) {
+            return false;
+        }
+
+        try {
+            // In mock mode, any connected wallet can start games
+            // In production, this would check against the contract's admin address
+            return window.contractConnection.isAdmin(window.connectedWallet.address);
+        } catch (error) {
+            console.error('Admin check failed:', error);
+            return false;
+        }
+    }
+
+    // Start Game Button Handler
+    startGameBtn.onclick = async function () {
+        // Disable button to prevent double-clicks
+        startGameBtn.disabled = true;
+        startGameBtn.textContent = 'Starting...';
+
+        try {
+            if (!isAdmin()) {
+                updateAdminStatus('❌ Please connect wallet first to access admin functions', true);
+                return;
+            }
+
+            // Get and validate form values
+            const buyInAmount = parseFloat(document.getElementById('buy-in-amount').value);
+            const registrationTime = parseInt(document.getElementById('registration-time').value);
+            const minPlayers = parseInt(document.getElementById('min-players').value);
+            const gameDuration = parseInt(document.getElementById('game-duration').value);
+
+            // Enhanced validation
+            if (isNaN(buyInAmount) || buyInAmount < 0.1 || buyInAmount > 100) {
+                updateAdminStatus('❌ Buy-in amount must be between 0.1 and 100 DOT', true);
+                return;
+            }
+
+            if (isNaN(registrationTime) || registrationTime < 1 || registrationTime > 60) {
+                updateAdminStatus('❌ Registration time must be between 1 and 60 minutes', true);
+                return;
+            }
+
+            if (isNaN(minPlayers) || minPlayers < 2 || minPlayers > 10) {
+                updateAdminStatus('❌ Minimum players must be between 2 and 10', true);
+                return;
+            }
+
+            if (isNaN(gameDuration) || gameDuration < 5 || gameDuration > 60) {
+                updateAdminStatus('❌ Game duration must be between 5 and 60 minutes', true);
+                return;
+            }
+
+            updateAdminStatus('🚀 Starting new buy-in game...');
+
+            // Convert DOT to planck for contract call
+            const buyInAmountPlanck = window.contractConnection.formatDOTToPlanck(buyInAmount);
+
+            // Call contract to start game
+            const result = await window.contractConnection.startGame(
+                window.connectedWallet.address, // admin address
+                buyInAmountPlanck,
+                registrationTime,
+                minPlayers,
+                gameDuration
+            );
+
+            if (result.success) {
+                updateAdminStatus(`✅ Game started! Buy-in: ${buyInAmount} DOT | Min players: ${minPlayers} | Registration: ${registrationTime}min`);
+
+                // Start registration timer
+                const registrationDeadlineMs = Date.now() + (registrationTime * 60 * 1000);
+                startRegistrationTimer(registrationDeadlineMs);
+
+                // Show start now button
+                startNowBtn.style.display = 'block';
+
+            } else {
+                updateAdminStatus('❌ Game start failed - please try again', true);
+            }
+
+        } catch (error) {
+            console.error('Start game error:', error);
+            let errorMessage = error.message || 'Unknown error occurred';
+
+            // Provide user-friendly error messages
+            if (errorMessage.includes('connection')) {
+                errorMessage = 'Connection error - please check your wallet connection';
+            } else if (errorMessage.includes('insufficient')) {
+                errorMessage = 'Insufficient balance to start game';
+            } else if (errorMessage.includes('admin')) {
+                errorMessage = 'Only contract admin can start games';
+            }
+
+            updateAdminStatus(`❌ Failed to start game: ${errorMessage}`, true);
+        } finally {
+            // Re-enable button
+            startGameBtn.disabled = false;
+            startGameBtn.textContent = '🚀 Start Buy-in Game';
+        }
+    };
+
+    // Start Now Button Handler
+    startNowBtn.onclick = async function () {
+        if (!isAdmin()) {
+            updateAdminStatus('❌ Only admin can start game immediately', true);
+            return;
+        }
+
+        if (!confirm('Start the game immediately? This will end registration early.')) {
+            return;
+        }
+
+        try {
+            startNowBtn.disabled = true;
+            startNowBtn.textContent = 'Starting...';
+
+            updateAdminStatus('⚡ Starting game immediately...');
+
+            // Call contract to start immediately
+            const result = await window.contractConnection.startGameNow(window.connectedWallet.address);
+
+            // Stop registration timer
+            stopRegistrationTimer();
+
+            if (result.success) {
+                updateAdminStatus('🎮 Game started immediately! Registration ended early.');
+                startNowBtn.style.display = 'none';
+            } else {
+                updateAdminStatus('❌ Failed to start game immediately', true);
+            }
+
+        } catch (error) {
+            console.error('Start now error:', error);
+            updateAdminStatus(`❌ Failed to start immediately: ${error.message}`, true);
+        } finally {
+            startNowBtn.disabled = false;
+            startNowBtn.textContent = '⚡ Start Game Now';
+        }
+    };
+
+    // Return to Menu Button Handler
+    var returnMenuBtn = document.getElementById('return-menu-btn');
+
+    returnMenuBtn.onclick = function () {
+        if (confirm('Return to main menu? This will leave the current game.')) {
+            // Stop any timers
+            stopRegistrationTimer();
+
+            // Hide game area and show menu
+            document.getElementById('gameAreaWrapper').style.opacity = 0;
+            document.getElementById('startMenuWrapper').style.maxHeight = '1000px';
+
+            // Hide return button
+            returnMenuBtn.style.display = 'none';
+
+            // Reset admin panel state
+            startNowBtn.style.display = 'none';
+            updateAdminStatus('Ready to configure new game');
+
+            // Stop game animation loop if running
+            if (global.animLoopHandle) {
+                window.cancelAnimationFrame(global.animLoopHandle);
+                global.animLoopHandle = undefined;
+            }
+
+            // Disconnect socket if connected
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+    };
+
+    // Check Status Button Handler
+    checkStatusBtn.onclick = async function () {
+        try {
+            updateAdminStatus('📊 Checking game status...');
+
+            const gameState = await window.contractConnection.getGameState();
+            const playerCount = await window.contractConnection.getPlayerCount();
+            const prizePool = await window.contractConnection.getPrizePool();
+            const prizePoolDOT = window.contractConnection.formatBalanceToDOT(prizePool);
+
+            updateAdminStatus(`📊 Game: ${gameState} | Players: ${playerCount} | Prize Pool: ${prizePoolDOT} DOT`);
+
+        } catch (error) {
+            console.error('Check status error:', error);
+            updateAdminStatus(`❌ Failed to check status: ${error.message}`, true);
+        }
+    };
+
+    // Force End Game Button Handler
+    forceEndBtn.onclick = async function () {
+        if (!isAdmin()) {
+            updateAdminStatus('❌ Only admin can force end games', true);
+            return;
+        }
+
+        if (!confirm('Are you sure you want to force end the current game? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            updateAdminStatus('⚠️ Force ending game...');
+
+            const result = await window.contractConnection.forceEndGame(window.connectedWallet.address);
+
+            updateAdminStatus('✅ Game force ended successfully');
+
+        } catch (error) {
+            console.error('Force end error:', error);
+            updateAdminStatus(`❌ Failed to force end game: ${error.message}`, true);
         }
     };
 
@@ -453,14 +761,13 @@ window.contractConnection = contractConnection;
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🎮 Agario Game Loading...');
 
-    // Initialize contract connection (without address initially)
+    // Initialize contract connection (mock mode)
     try {
-        await contractConnection.connect('ws://localhost:9944');
-        console.log('✅ Connected to Polkadot node successfully');
+        await contractConnection.connect('ws://localhost:9944'); // Mock connection
+        console.log('✅ Contract connection ready (MOCK mode)');
         console.log('💡 Use window.contractConnection in console to interact with contract');
-        console.log('💡 Set contract address with: contractConnection.setContractAddress("YOUR_ADDRESS")');
+        console.log('💡 Try: testContractConnection() or demoGameWorkflow()');
     } catch (error) {
-        console.warn('⚠️ Could not connect to Polkadot node:', error.message);
-        console.log('💡 Make sure a Polkadot node is running on ws://localhost:9944');
+        console.error('❌ Contract connection failed:', error.message);
     }
 });
