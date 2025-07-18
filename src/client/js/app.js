@@ -4,6 +4,7 @@ var render = require('./render');
 var ChatClient = require('./chat-client');
 var Canvas = require('./canvas');
 var global = require('./global');
+
 var TokenAssetManager = require('./token-asset-manager');
 
 // Initialize token asset manager
@@ -47,6 +48,9 @@ function setupTokenSelection() {
     });
 }
 
+var contractConnection = require('./contract-connection');
+
+
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
 
@@ -82,31 +86,31 @@ function startGame(type) {
             // Handle both local development and production
             withCredentials: true
         };
-        
+
         // For production HTTPS sites, ensure secure connection
         if (window.location.protocol === 'https:') {
             socketOptions.upgrade = true;
             socketOptions.rememberUpgrade = true;
         }
-        
+
         socket = io(socketOptions);
-        
+
         // Add connection status logging for debugging
         socket.on('connect', () => {
             console.log('✅ Socket.io connected successfully');
             console.log('Transport:', socket.io.engine.transport.name);
         });
-        
+
         socket.on('connect_error', (error) => {
             console.error('❌ Socket.io connection error:', error);
             handleConnectionError(error);
         });
-        
+
         socket.on('disconnect', (reason) => {
             console.log('🔌 Socket.io disconnected:', reason);
             handleDisconnect();
         });
-        
+
         setupSocket(socket);
     }
     if (!global.animLoopHandle)
@@ -235,7 +239,7 @@ function handleDisconnect() {
     if (socket) {
         socket.close();
     }
-    if (!global.kicked) { // We have a more specific error message 
+    if (!global.kicked) { // We have a more specific error message
         render.drawErrorMessage('Disconnected!', graph, global.screen);
     }
 }
@@ -244,7 +248,7 @@ function handleDisconnect() {
 function handleConnectionError(error) {
     console.error('Socket.io connection error:', error);
     let errorMessage = 'Connection failed!';
-    
+
     // Provide specific error messages for common Chrome issues
     if (error.message && error.message.includes('websocket')) {
         errorMessage = 'WebSocket connection failed. Try refreshing the page.';
@@ -253,7 +257,7 @@ function handleConnectionError(error) {
     } else if (error.description && error.description.includes('xhr')) {
         errorMessage = 'Connection blocked. Try disabling ad blockers or VPN.';
     }
-    
+
     render.drawErrorMessage(errorMessage, graph, global.screen);
 }
 
@@ -281,13 +285,13 @@ function setupSocket(socket) {
         // Add token selection - get from UI or use random
         player.tokenType = global.selectedTokenType || tokenManager.getRandomTokenType();
         console.log('Player token type:', player.tokenType);
-        
+
         // Include wallet address if available
         if (window.connectedWallet) {
             player.walletAddress = window.connectedWallet.address;
             console.log('Adding wallet address to player object:', player.walletAddress);
         }
-        
+
         global.player = player;
         window.chat.player = player;
         socket.emit('gotit', player);
@@ -507,3 +511,22 @@ function resize() {
 
     socket.emit('windowResized', { screenWidth: global.screen.width, screenHeight: global.screen.height });
 }
+
+// Make contract connection available globally for console testing
+window.contractConnection = contractConnection;
+
+// Test contract connection on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('🎮 Agario Game Loading...');
+
+    // Initialize contract connection (without address initially)
+    try {
+        await contractConnection.connect('ws://localhost:9944');
+        console.log('✅ Connected to Polkadot node successfully');
+        console.log('💡 Use window.contractConnection in console to interact with contract');
+        console.log('💡 Set contract address with: contractConnection.setContractAddress("YOUR_ADDRESS")');
+    } catch (error) {
+        console.warn('⚠️ Could not connect to Polkadot node:', error.message);
+        console.log('💡 Make sure a Polkadot node is running on ws://localhost:9944');
+    }
+});
