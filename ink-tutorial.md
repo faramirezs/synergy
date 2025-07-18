@@ -7,17 +7,13 @@
 
 ## Introduction:
 
-So we've been coding for 2 days, building something we'd never attempted before – a smart contract treasury for our Agario-style game, and this is our process:
-
-This is our story. We're computer science students who barely knew some Rust, had heard about blockchain, but had never actually built a smart contract. Fast forward 48 hours, and we had a fully functional game treasury managing player buy-ins, prize distribution, and complex game state management.
-
-If we can do it, so can you. This tutorial will take you on the same journey we took – from the basics to building sophisticated smart contracts with ink!, Polkadot's smart contract language.
+This tutorial will take you on the same journey we took – from the basics to building sophisticated smart contracts with ink!, Polkadot's smart contract language.
 
 ### Why ink!?
 
 During our hackathon research phase, we discovered ink! and immediately fell in love with it:
 
-- **It's Rust**: We already knew Rust from 42 Berlin's curriculum
+- **It's Rust**: We already knew Rust is great for blockchain.
 - **Polkadot ecosystem**: Better interoperability and lower fees than Ethereum
 - **Safety first**: Rust's ownership model prevents many common smart contract vulnerabilities
 - **Great tooling**: Excellent development experience with clear error messages
