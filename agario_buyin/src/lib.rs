@@ -2,17 +2,15 @@
 
 #[ink::contract]
 mod agario_buyin {
-    use core::convert::TryInto;
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
-    use ink::H160;
 
     /// Defines the storage of your contract.
     /// Enhanced storage structure with timing and game management
     #[ink(storage)]
     pub struct AgarioBuyin {
         /// Administrative fields
-        game_admin: H160,
+        game_admin: AccountId,
         admin_fee_percentage: u8, // 0-100
 
         /// Game state management
@@ -29,7 +27,7 @@ mod agario_buyin {
         game_start_time: Timestamp,
 
         /// Players & Prize Pool
-        players: Mapping<H160, ()>,
+        players: Mapping<AccountId, ()>,
         player_count: u32,
         prize_pool: Balance,
     }
@@ -217,13 +215,13 @@ mod agario_buyin {
 
         /// Check if a player is registered
         #[ink(message)]
-        pub fn is_player_registered(&self, player: H160) -> bool {
+        pub fn is_player_registered(&self, player: AccountId) -> bool {
             self.players.get(player).is_some()
         }
 
         /// Get contract admin
         #[ink(message)]
-        pub fn get_admin(&self) -> H160 {
+        pub fn get_admin(&self) -> AccountId {
             self.game_admin
         }
 
@@ -339,7 +337,7 @@ mod agario_buyin {
             let deposit_amount = self.env().transferred_value();
 
             // Check correct deposit amount
-            if deposit_amount != self.buy_in_amount.into() {
+            if deposit_amount != self.buy_in_amount {
                 return Err(Error::IncorrectBuyInAmount);
             }
 
@@ -358,9 +356,7 @@ mod agario_buyin {
             // Add player
             self.players.insert(caller, &());
             self.player_count = self.player_count.saturating_add(1);
-            // Convert U256 to Balance (u128) safely
-            let deposit_as_balance: Balance = deposit_amount.try_into().unwrap_or(0);
-            self.prize_pool = self.prize_pool.saturating_add(deposit_as_balance);
+            self.prize_pool = self.prize_pool.saturating_add(deposit_amount);
 
             // Emit PlayerJoined event (commented for MVP due to ink! v6 compatibility)
             // self.env().emit_event(PlayerJoined {
@@ -432,7 +428,8 @@ mod agario_buyin {
                 GameState::InProgress => {
                     // Check if game duration exceeded
                     if let Some(duration) = self.game_duration {
-                        if now >= self.game_start_time + duration {
+                        let game_end_time = self.game_start_time.saturating_add(duration);
+                        if now >= game_end_time {
                             self.game_state = GameState::WaitingForResults;
                             // Emit GameTimeExpired event (commented for MVP due to ink! v6 compatibility)
                             // self.env().emit_event(GameTimeExpired {
@@ -484,7 +481,7 @@ mod agario_buyin {
         #[ink(message)]
         pub fn submit_winners(
             &mut self,
-            winners: Vec<H160>,
+            winners: Vec<AccountId>,
             percentages: Vec<u8>,
             _reason: GameEndReason,
         ) -> Result<()> {
@@ -531,7 +528,7 @@ mod agario_buyin {
                     .unwrap_or(0);
                 if prize > 0 {
                     self.env()
-                        .transfer(*winner, prize.into())
+                        .transfer(*winner, prize)
                         .map_err(|_| Error::TransferFailed)?;
                 }
             }
@@ -539,7 +536,7 @@ mod agario_buyin {
             // Transfer admin fee
             if admin_cut > 0 {
                 self.env()
-                    .transfer(self.game_admin, admin_cut.into())
+                    .transfer(self.game_admin, admin_cut)
                     .map_err(|_| Error::TransferFailed)?;
             }
 
@@ -676,14 +673,14 @@ mod agario_buyin {
         fn player_registration_check_works() {
             let contract = AgarioBuyin::new(5).unwrap();
 
-            // Create a mock H160 address
-            let player_address = H160::from([1; 20]);
+            // Create a mock AccountId (using default test account)
+            let player_address = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>().alice;
 
             // Player should not be registered initially
             assert!(!contract.is_player_registered(player_address));
 
             // Test with different address
-            let other_address = H160::from([2; 20]);
+            let other_address = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>().bob;
             assert!(!contract.is_player_registered(other_address));
         }
 
@@ -788,13 +785,14 @@ mod agario_buyin {
             assert!(matches!(result, Err(Error::NoWinners)));
 
             // Test mismatched vectors
-            let winners = vec![H160::from([1; 20])];
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            let winners = vec![accounts.alice];
             let percentages = vec![50, 30]; // Different length
             let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
             assert!(matches!(result, Err(Error::MismatchedData)));
 
             // Test invalid percentages
-            let winners = vec![H160::from([1; 20]), H160::from([2; 20])];
+            let winners = vec![accounts.alice, accounts.bob];
             let percentages = vec![60, 50]; // Total > 100
             let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
             assert!(matches!(result, Err(Error::InvalidPercentages)));
@@ -894,10 +892,11 @@ mod agario_buyin {
             contract.player_count = 4;
 
             // Define winners: 1st place 50%, 2nd place 30%, 3rd place 20%
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             let winners = vec![
-                H160::from([1; 20]), // 1st place
-                H160::from([2; 20]), // 2nd place
-                H160::from([3; 20]), // 3rd place
+                accounts.alice,   // 1st place
+                accounts.bob,     // 2nd place
+                accounts.charlie, // 3rd place
             ];
             let percentages = vec![50, 30, 20]; // Total 100%
 
@@ -917,9 +916,9 @@ mod agario_buyin {
             // Calculate expected distributions (5% admin fee)
             let admin_fee = 10000 * 5 / 100; // 500
             let winner_pool = 10000 - admin_fee; // 9500
-            let first_prize = winner_pool * 50 / 100; // 4750
-            let second_prize = winner_pool * 30 / 100; // 2850
-            let third_prize = winner_pool * 20 / 100; // 1900
+            let _first_prize = winner_pool * 50 / 100; // 4750
+            let _second_prize = winner_pool * 30 / 100; // 2850
+            let _third_prize = winner_pool * 20 / 100; // 1900
 
             // Note: In a real test environment, we'd verify the actual transfers
             // For now, we verify the function completed successfully
@@ -935,7 +934,8 @@ mod agario_buyin {
             contract.prize_pool = 10000;
 
             // Only distribute 80% of winnings, 20% stays in contract
-            let winners = vec![H160::from([1; 20]), H160::from([2; 20])];
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            let winners = vec![accounts.alice, accounts.bob];
             let percentages = vec![50, 30]; // Total 80%
 
             let result =
@@ -953,9 +953,10 @@ mod agario_buyin {
             contract.prize_pool = 10000;
 
             // Change caller to non-admin (default test caller is admin)
-            ink::env::test::set_caller(H160::from([99; 20]));
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
 
-            let winners = vec![H160::from([1; 20])];
+            let winners = vec![accounts.alice];
             let percentages = vec![100];
 
             let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
@@ -967,7 +968,8 @@ mod agario_buyin {
             let mut contract = AgarioBuyin::new(5).unwrap();
 
             // Test various wrong states
-            let winners = vec![H160::from([1; 20])];
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            let winners = vec![accounts.alice];
             let percentages = vec![100];
 
             // Test Inactive state
@@ -1023,9 +1025,10 @@ mod agario_buyin {
             // Note: In real demo, we'd use payable calls with actual DOT transfers
 
             // Manually simulate player registration for MVP testing
-            let player1 = H160::from([1; 20]);
-            let player2 = H160::from([2; 20]);
-            let player3 = H160::from([3; 20]);
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            let player1 = accounts.alice;
+            let player2 = accounts.bob;
+            let player3 = accounts.charlie;
 
             // Simulate player deposits by manually updating state (for unit test)
             contract.players.insert(player1, &());
@@ -1091,22 +1094,23 @@ mod agario_buyin {
             let mut contract = AgarioBuyin::new(5).unwrap();
 
             // Mock non-admin caller
-            let non_admin_address = H160::from([99; 20]);
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            let non_admin_address = accounts.bob;
 
             // Test 1: start_game requires admin
-            ink::env::test::set_caller(non_admin_address);
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(non_admin_address);
             let result = contract.start_game(1000, 10, 2, Some(30));
             assert!(matches!(result, Err(Error::NotAdmin)));
 
             // Reset to admin caller
-            ink::env::test::set_caller(contract.game_admin);
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(contract.game_admin);
             contract.start_game(1000, 10, 2, Some(30)).unwrap();
             contract.game_state = GameState::WaitingForResults;
             contract.prize_pool = 1000;
 
             // Test 2: submit_winners requires admin
-            ink::env::test::set_caller(non_admin_address);
-            let winners = vec![H160::from([1; 20])];
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(non_admin_address);
+            let winners = vec![accounts.alice];
             let percentages = vec![100];
             let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
             assert!(matches!(result, Err(Error::NotAdmin)));
@@ -1116,8 +1120,8 @@ mod agario_buyin {
             assert!(matches!(result, Err(Error::NotAdmin)));
 
             // Reset to admin and verify functions work
-            ink::env::test::set_caller(contract.game_admin);
-            let winners = vec![H160::from([1; 20])];
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(contract.game_admin);
+            let winners = vec![accounts.alice];
             let percentages = vec![100];
             let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
             assert!(result.is_ok());
@@ -1127,13 +1131,14 @@ mod agario_buyin {
         #[ink::test]
         fn mvp_critical_error_cases() {
             let mut contract = AgarioBuyin::new(5).unwrap();
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
 
             // Error Case 1: Starting game with invalid parameters
             let result = contract.start_game(1000, 10, 1, Some(30)); // < 2 min players
             assert!(matches!(result, Err(Error::TooFewPlayers)));
 
             // Error Case 2: Operations in wrong game state
-            let winners = vec![H160::from([1; 20])];
+            let winners = vec![accounts.alice];
             let percentages = vec![100];
             let result = contract.submit_winners(
                 winners.clone(),
@@ -1156,7 +1161,7 @@ mod agario_buyin {
             assert!(matches!(result, Err(Error::MismatchedData)));
 
             // Invalid percentages (> 100%)
-            let winners = vec![H160::from([1; 20]), H160::from([2; 20])];
+            let winners = vec![accounts.alice, accounts.bob];
             let percentages = vec![60, 50]; // 110% total
             let result = contract.submit_winners(winners, percentages, GameEndReason::TimeLimit);
             assert!(matches!(result, Err(Error::InvalidPercentages)));

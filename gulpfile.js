@@ -29,7 +29,7 @@ function runServer(done) {
 function buildServer() {
     // Node.js 18 optimizations
     process.env.NODE_ENV = process.env.NODE_ENV || 'production';
-    let task = gulp.src(['src/server/**/*.*', 'src/server/**/*.js']);
+    let task = gulp.src(['src/server/**/*.*', 'src/server/**/*.js', '!src/server/**/*.sqlite3', '!src/server/db/**']);
     if (!process.env.IS_DEV) {
         task = task.pipe(babel())
     }

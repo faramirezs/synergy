@@ -90,7 +90,6 @@
             const walletInfo = document.getElementById('wallet-info');
             const accountAddress = document.getElementById('account-address');
             const accountBalance = document.getElementById('account-balance');
-            const startButton = document.getElementById('startButton');
             
             if (connectWalletBtn) {
                 connectWalletBtn.addEventListener('click', function() {
@@ -118,27 +117,12 @@
                     walletInfo.style.display = 'block';
                     connectWalletBtn.textContent = 'Connected ✓';
                     connectWalletBtn.disabled = true;
-                    connectWalletBtn.style.backgroundColor = '#28a745';
                     
                     // Store globally for game
                     window.walletAddress = account.address;
                     window.connectedAccount = account;
                     
                     console.log('Demo wallet connected:', account.name, account.address);
-                });
-            }
-            
-            // Add wallet address to game data when starting
-            if (startButton) {
-                startButton.addEventListener('click', function(e) {
-                    // Add wallet info to global object if available
-                    if (window.walletAddress && window.global) {
-                        window.global.walletAddress = window.walletAddress;
-                        console.log('Adding wallet address to game:', window.walletAddress);
-                    }
-                    
-                    // Allow game to continue normally
-                    console.log('Starting game...');
                 });
             }
         });
