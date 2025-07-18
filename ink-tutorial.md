@@ -164,7 +164,7 @@ pub struct MyContract {
     my_balance: Balance,
 
     // Blockchain-specific types
-    my_account: AccountId,
+    my_account: H160,
     my_hash: Hash,
 
     // Dynamic types (using ink::prelude)
@@ -173,17 +173,17 @@ pub struct MyContract {
 }
 ```
 
-### The Magic of AccountId
+### The Magic of H160
 
-`AccountId` is super important – it represents a user's address on the blockchain. In our Agario game, we use it to track which player is which:
+`H160` is super important – it represents a user's address on the blockchain. In our Agario game, we use it to track which player is which:
 
 ```rust
 use ink::prelude::vec::Vec;
 
 #[ink(storage)]
 pub struct SimpleGame {
-    players: Vec<AccountId>,
-    admin: AccountId,
+    players: Vec<H160>,
+    admin: H160,
 }
 
 impl SimpleGame {
@@ -233,8 +233,8 @@ use ink::storage::Mapping;
 
 #[ink(storage)]
 pub struct PlayerRegistry {
-    // Maps player AccountId to their balance
-    balances: Mapping<AccountId, Balance>,
+    // Maps player H160 to their balance
+    balances: Mapping<H160, Balance>,
     player_count: u32,
 }
 
@@ -265,7 +265,7 @@ impl PlayerRegistry {
     }
 
     #[ink(message)]
-    pub fn is_registered(&self, player: AccountId) -> bool {
+    pub fn is_registered(&self, player: H160) -> bool {
         self.balances.get(player).is_some()
     }
 }
@@ -325,9 +325,9 @@ pub enum GameState {
 #[ink(storage)]
 pub struct Game {
     state: GameState,
-    players: Mapping<AccountId, ()>,
+    players: Mapping<H160, ()>,
     player_count: u32,
-    winner: Option<AccountId>,
+    winner: Option<H160>,
 }
 ```
 
@@ -354,7 +354,7 @@ impl Game {
     }
 
     #[ink(message)]
-    pub fn end_game(&mut self, winner: AccountId) -> Result<(), Error> {
+    pub fn end_game(&mut self, winner: H160) -> Result<(), Error> {
         if self.state != GameState::Active {
             return Err(Error::GameNotActive);
         }
@@ -403,7 +403,7 @@ The exciting part of our Agario game was handling real money! Players pay to joi
 pub struct GameTreasury {
     buy_in_amount: Balance,
     prize_pool: Balance,
-    players: Mapping<AccountId, ()>,
+    players: Mapping<H160, ()>,
 }
 
 impl GameTreasury {
@@ -447,7 +447,7 @@ Paying winners requires transferring money from the contract:
 
 ```rust
 #[ink(message)]
-pub fn distribute_prize(&mut self, winner: AccountId) -> Result<(), Error> {
+pub fn distribute_prize(&mut self, winner: H160) -> Result<(), Error> {
     // Only admin can distribute
     if self.env().caller() != self.admin {
         return Err(Error::NotAuthorized);
@@ -507,7 +507,7 @@ Our game needed an admin who could start games, end them, and manage the treasur
 ```rust
 #[ink(storage)]
 pub struct AdminControlledGame {
-    admin: AccountId,
+    admin: H160,
     // ... other storage
 }
 
@@ -543,7 +543,7 @@ impl AdminControlledGame {
     }
 
     #[ink(message)]
-    pub fn transfer_admin(&mut self, new_admin: AccountId) -> Result<(), Error> {
+    pub fn transfer_admin(&mut self, new_admin: H160) -> Result<(), Error> {
         self.ensure_admin()?;
         self.admin = new_admin;
         Ok(())
@@ -566,12 +566,12 @@ pub enum Role {
 
 #[ink(storage)]
 pub struct RoleBasedGame {
-    roles: Mapping<AccountId, Role>,
-    admin: AccountId,
+    roles: Mapping<H160, Role>,
+    admin: H160,
 }
 
 impl RoleBasedGame {
-    fn get_role(&self, account: AccountId) -> Role {
+    fn get_role(&self, account: H160) -> Role {
         self.roles.get(account).unwrap_or(Role::Player)
     }
 
@@ -734,7 +734,7 @@ mod tests {
         let mut contract = Game::new(1000);
         // In tests, we can't easily simulate payments,
         // so we test the logic separately
-        let result = contract.add_player_internal(AccountId::from([1; 32]));
+        let result = contract.add_player_internal(H160::from([1; 20]));
         assert!(result.is_ok());
         assert_eq!(contract.get_player_count(), 1);
     }
@@ -742,7 +742,7 @@ mod tests {
     #[ink::test]
     fn prevents_double_join() {
         let mut contract = Game::new(1000);
-        let player = AccountId::from([1; 32]);
+        let player = H160::from([1; 20]);
 
         contract.add_player_internal(player).unwrap();
         let result = contract.add_player_internal(player);
@@ -767,15 +767,15 @@ fn game_state_transitions() {
     assert_eq!(result, Err(Error::NotEnoughPlayers));
 
     // Add players
-    contract.add_player_internal(AccountId::from([1; 32])).unwrap();
-    contract.add_player_internal(AccountId::from([2; 32])).unwrap();
+    contract.add_player_internal(H160::from([1; 20])).unwrap();
+    contract.add_player_internal(H160::from([2; 20])).unwrap();
 
     // Now we can start
     contract.start_game().unwrap();
     assert_eq!(contract.get_game_state(), GameState::Active);
 
     // Can't join active game
-    let result = contract.add_player_internal(AccountId::from([3; 32]));
+    let result = contract.add_player_internal(H160::from([3; 20]));
     assert_eq!(result, Err(Error::GameAlreadyStarted));
 }
 ```
@@ -805,14 +805,14 @@ fn complete_game_flow() {
     let mut game = Game::new(1000);
 
     // Add players
-    game.add_player_internal(AccountId::from([1; 32])).unwrap();
-    game.add_player_internal(AccountId::from([2; 32])).unwrap();
+    game.add_player_internal(H160::from([1; 20])).unwrap();
+    game.add_player_internal(H160::from([2; 20])).unwrap();
 
     // Start game
     game.start_game().unwrap();
 
     // End game
-    game.end_game(AccountId::from([1; 32])).unwrap();
+    game.end_game(H160::from([1; 20])).unwrap();
 
     assert_eq!(game.get_game_state(), GameState::Finished);
 }
@@ -839,7 +839,7 @@ fn error_conditions() {
 
     // Test each error condition
     assert_eq!(game.start_game(), Err(Error::NotEnoughPlayers));
-    assert_eq!(game.end_game(AccountId::from([1; 32])), Err(Error::GameNotActive));
+    assert_eq!(game.end_game(H160::from([1; 20])), Err(Error::GameNotActive));
 }
 ```
 
@@ -886,19 +886,19 @@ mod agario_game {
     #[ink(storage)]
     pub struct AgarioGame {
         // Admin and configuration
-        admin: AccountId,
+        admin: H160,
         buy_in_amount: Balance,
 
         // Game state
         game_state: GameState,
 
         // Players and money
-        players: Mapping<AccountId, ()>,
+        players: Mapping<H160, ()>,
         player_count: u32,
         prize_pool: Balance,
 
         // Game results
-        winner: Option<AccountId>,
+        winner: Option<H160>,
     }
 
     impl AgarioGame {
@@ -963,7 +963,7 @@ mod agario_game {
 
         /// Admin declares the winner and distributes prize
         #[ink(message)]
-        pub fn declare_winner(&mut self, winner: AccountId) -> Result<()> {
+        pub fn declare_winner(&mut self, winner: H160) -> Result<()> {
             // Only admin can declare winner
             if self.env().caller() != self.admin {
                 return Err(Error::NotAuthorized);
@@ -1009,17 +1009,17 @@ mod agario_game {
         }
 
         #[ink(message)]
-        pub fn is_player(&self, account: AccountId) -> bool {
+        pub fn is_player(&self, account: H160) -> bool {
             self.players.contains(account)
         }
 
         #[ink(message)]
-        pub fn get_winner(&self) -> Option<AccountId> {
+        pub fn get_winner(&self) -> Option<H160> {
             self.winner
         }
 
         #[ink(message)]
-        pub fn get_admin(&self) -> AccountId {
+        pub fn get_admin(&self) -> H160 {
             self.admin
         }
     }
@@ -1123,7 +1123,7 @@ fn good_example(&mut self) {
 **3. Batch Operations**
 ```rust
 // Instead of multiple individual operations
-fn distribute_prizes(&mut self, winners: Vec<(AccountId, Balance)>) -> Result<()> {
+fn distribute_prizes(&mut self, winners: Vec<(H160, Balance)>) -> Result<()> {
     for (winner, amount) in winners {
         self.env().transfer(winner, amount)
             .map_err(|_| Error::TransferFailed)?;
@@ -1145,7 +1145,7 @@ Although we commented out events in our hackathon contract due to compilation is
 #[ink(event)]
 pub struct PlayerJoined {
     #[ink(topic)]
-    pub player: AccountId,
+    pub player: H160,
     pub player_count: u32,
     pub prize_pool: Balance,
 }
@@ -1159,7 +1159,7 @@ pub struct GameStarted {
 #[ink(event)]
 pub struct WinnerDeclared {
     #[ink(topic)]
-    pub winner: AccountId,
+    pub winner: H160,
     pub prize_amount: Balance,
 }
 
@@ -1190,7 +1190,7 @@ For production systems, you might need upgradeable contracts:
 ```rust
 #[ink(storage)]
 pub struct UpgradeableGame {
-    admin: AccountId,
+    admin: H160,
     implementation: Hash, // Hash of the implementation contract
     // ... other storage
 }
@@ -1216,7 +1216,7 @@ Your game might need to interact with other contracts:
 use ink::env::call::{build_call, ExecutionInput};
 
 #[ink(message)]
-pub fn call_external_contract(&mut self, contract_address: AccountId) -> Result<()> {
+pub fn call_external_contract(&mut self, contract_address: H160) -> Result<()> {
     let result = build_call::<Environment>()
         .call(contract_address)
         .gas_limit(5000)

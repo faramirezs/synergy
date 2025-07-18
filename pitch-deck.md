@@ -378,11 +378,6 @@ gametreasury.setupLeague({
 - Technical mentorship
 - Ecosystem connections
 
-**💰 Investment**
-- $500K seed funding
-- Blockchain/gaming investor
-- Value-add beyond capital
-
 **🌟 Validation**
 - Beta testing partnerships
 - Technical advisory board
@@ -485,5 +480,3 @@ impl GameTreasury {
 - **Latency**: Sub-second transaction confirmations
 
 ---
-
-*This pitch deck represents our hackathon journey from blockchain beginners to production-ready smart contract developers. Every line of code, every test case, and every documentation page was written with real developer pain points in mind.*
