@@ -68,17 +68,17 @@
     <script src="//code.jquery.com/jquery-2.2.0.min.js"></script>
     <!-- Socket.io client library - CRITICAL for Chrome compatibility -->
     <script src="/socket.io/socket.io.js"></script>
-    
+
     <!-- Integrated wallet connection (similar to our working standalone test) -->
     <!-- IMPORTANT: Put this BEFORE app.js to ensure our handlers are set up first -->
     <script type="module">
         console.log('Wallet module script started');
-        
+
         // Debug logger function
         function logWallet(message, data) {
             const timestamp = new Date().toLocaleTimeString();
             let logMessage = `[WALLET ${timestamp}] ${message}`;
-            
+
             if (data !== undefined) {
                 console.log(logMessage, data);
             } else {
@@ -88,23 +88,23 @@
 
         // Store connected wallet info globally so game logic can access it
         window.connectedWallet = null;
-        
+
         // Wait for DOM to be ready
         document.addEventListener('DOMContentLoaded', async () => {
             logWallet('DOM loaded in wallet module');
-            
+
             const connectWalletBtn = document.getElementById('connect-wallet');
             const walletInfoDiv = document.getElementById('wallet-info');
             const accountAddressSpan = document.getElementById('account-address');
             const accountBalanceSpan = document.getElementById('account-balance');
-            
+
             if (!connectWalletBtn) {
                 logWallet('ERROR: Connect wallet button not found!');
                 return;
             }
-            
+
             logWallet('Found wallet button:', connectWalletBtn);
-            
+
             // Load Polkadot extension functions
             async function loadPolkadotExtension() {
                 try {
@@ -117,47 +117,47 @@
                     throw error;
                 }
             }
-            
+
             // Connect wallet handler
             connectWalletBtn.addEventListener('click', async () => {
                 logWallet('Connect button clicked');
                 connectWalletBtn.disabled = true;
                 connectWalletBtn.textContent = 'Connecting...';
-                
+
                 try {
                     // Load the extension
                     const { web3Accounts, web3Enable } = await loadPolkadotExtension();
-                    
+
                     // Enable the extension
                     logWallet('Enabling web3 extensions...');
                     const extensions = await web3Enable('Synergy Game');
                     logWallet('Extensions enabled', extensions);
-                    
+
                     if (extensions.length === 0) {
                         throw new Error('No Polkadot.js extension found. Please install the extension.');
                     }
-                    
+
                     // Get accounts
                     logWallet('Getting accounts...');
                     const accounts = await web3Accounts();
                     logWallet('Accounts received', accounts);
-                    
+
                     // Update UI
                     if (accounts.length > 0) {
                         const firstAccount = accounts[0];
                         const accountName = firstAccount.meta.name || 'Unnamed';
-                        
+
                         // Store connected account globally for the game logic to use
                         window.connectedWallet = {
                             address: firstAccount.address,
                             name: accountName,
                             account: firstAccount
                         };
-                        
+
                         // Update wallet info display
                         accountAddressSpan.textContent = firstAccount.address;
                         accountBalanceSpan.textContent = accountName;
-                        
+
                         // Auto-fill the player name input with the account name
                         const playerNameInput = document.getElementById('playerNameInput');
                         if (playerNameInput) {
@@ -167,10 +167,10 @@
                             playerNameInput.value = sanitizedName;
                             logWallet(`Set player name to account name: ${sanitizedName}`);
                         }
-                        
+
                         walletInfoDiv.style.display = 'block';
                         connectWalletBtn.style.display = 'none';
-                        
+
                         logWallet('Successfully connected to wallet!');
                     } else {
                         throw new Error('No accounts found in the extension');
@@ -182,15 +182,32 @@
                     connectWalletBtn.textContent = 'Connect Wallet';
                 }
             });
-            
+
             // Make sure the button is ready
             logWallet('Wallet integration ready');
         });
     </script>
-    
+
+    <!-- Polkadot.js API for contract interaction -->
+    <script src="https://unpkg.com/@polkadot/api@16.4.1/bundle-polkadot-api.js"></script>
+    <script src="https://unpkg.com/@polkadot/api-contract@16.4.1/bundle-polkadot-api-contract.js"></script>
+
+    <!-- Initialize Polkadot API globals -->
+    <script>
+        // Make Polkadot API available globally for our contract connection
+        window.polkadotApi = {
+            ApiPromise: polkadotApi.ApiPromise,
+            WsProvider: polkadotApi.WsProvider,
+            apiContract: {
+                ContractPromise: polkadotApiContract.ContractPromise
+            }
+        };
+        console.log('✅ Polkadot API loaded globally');
+    </script>
+
     <!-- Add app.js after our wallet integration script -->
     <script src="js/app.js"></script>
-    
+
     <!-- Override app.js button handling -->
     <script>
         // Fix the game's button handling
