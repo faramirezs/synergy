@@ -1,5 +1,6 @@
+## Part 1: Introduction to ink! and Smart Contract Setup
 --------------------------------------------------------------------------------
-Part 1: Introduction to ink! and Smart Contract Setup
+
 This section will introduce you to ink! and Rust basics relevant to smart contract development, covering how to set up your environment, define contract storage, and structure your project.
 1.1 Setting Up Your ink! Development Environment
 To begin developing with ink!, you need the cargo-contract CLI tool.
@@ -98,3 +99,80 @@ The provided sources include extensive unit tests for the AgarioBuyin contract, 
 • Simulating Time: In tests, registration_deadline and game_start_time can be manually set to simulate the passage of time for automatic transitions.
 • Simulating Deposits: For unit tests, player deposits and prize pool increases can be simulated by manually updating contract state fields (e.g., contract.players.insert(...), contract.player_count = ..., contract.prize_pool = ...) rather than requiring actual payable calls.
 By following these conceptual and technical foundations, you will be able to build a fully functional, testable Agario-inspired buy-in game contract using ink! and Rust.
+
+## Tutorial
+
+
+You will see this after compilation:
+
+```bash
+/agario_buyin/target/ink
+
+  - agario_buyin.contract (code + metadata)
+  - agario_buyin.polkavm (the contract's code)
+  - agario_buyin.json (the contract's metadata)
+
+```
+
+After compilation you can initiate the contract using the `new()` constructor with the admin fee percentage (5):
+
+```bash
+cargo contract instantiate \
+    --constructor new \
+    --args 5 \
+    --suri //Alice \
+    --url wss://rpc1.paseo.popnetwork.xyz \
+    --execute
+```
+
+After this you will see the contract address which you can use to interact with the contract.
+
+Examples of how to make interactions with the contract:
+
+First, lets start a game:
+
+```bash
+cargo contract call \
+--contract 0xd441d8f1cba85d3cd349f97605694fd4a2ce77be \
+--message start_game \
+--args 1000000000000 5 2 "Some(2)" \
+--suri //Alice \
+--url wss://rpc1.paseo.popnetwork.xyz \
+--execute \
+--skip-confirm
+```
+
+```bash
+cargo contract call \
+--contract  \
+--message get_admin \
+--suri //Alice \
+--url wss://rpc1.paseo.popnetwork.xyz
+```
+
+```bash
+cargo contract call \
+--contract {contract address} \
+--message get_game_state \
+--suri //Alice \
+--url wss://rpc1.paseo.popnetwork.xyz
+```
+
+Bob buys in:
+
+```bash
+cargo contract call \ 
+--contract {contract address} \
+--message deposit \
+--suri //Bob \
+--url wss://rpc1.paseo.popnetwork.xyz \
+--value 1000000000000 \
+--execute
+```
+
+```bash
+cargo contract call \ 
+    --contract {contract address} \
+    --message get_buy_in_amount \
+    --suri //Bob \
+  
